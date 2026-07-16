@@ -6,7 +6,7 @@ from mediaforge.downloader.validators.models import (
     ValidationErrorCode,
 )
 
-_NO_THUMBNAIL_EMBED = {".ts", ".mkv", ".webm", ".avi", ".flv"}
+_NO_THUMBNAIL_EMBED = {".ts", ".webm", ".avi", ".flv", ".wav"}
 
 
 def validate_thumbnail(ctx: ValidationContext, validation: DownloadValidationResult) -> None:

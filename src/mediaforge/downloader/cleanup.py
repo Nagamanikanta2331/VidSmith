@@ -11,7 +11,7 @@ from mediaforge.downloader.validator import DownloadValidationResult
 # Containers that cannot hold embedded cover art (yt-dlp EmbedThumbnail).
 # For these, an EMBED request degrades to "save the thumbnail next to the
 # file", so cleanup must keep the image instead of deleting it.
-_NO_THUMBNAIL_EMBED = {".webm", ".wav"}
+_NO_THUMBNAIL_EMBED = {".ts", ".webm", ".avi", ".flv", ".wav"}
 
 
 
@@ -23,17 +23,19 @@ def cleanup_job_artifacts(
     *,
     cleanup_enabled: bool = True,
     keep_temp_files: bool = False,
-) -> None:
+) -> list[Path]:
     """
     Centralized cleanup manager.
     Automatically deletes .part, .temp, .webp, .vtt, .info.json
     ONLY if embedded successfully or user did not explicitly request to keep them.
     """
+    deleted_files: list[Path] = []
+
     if not cleanup_enabled or keep_temp_files:
-        return
+        return deleted_files
 
     if not final_files:
-        return
+        return deleted_files
 
     for final_file in final_files:
         if not final_file.exists():
@@ -62,6 +64,7 @@ def cleanup_job_artifacts(
                     ):
                         try:
                             item.unlink()
+                            deleted_files.append(item)
                         except OSError:
                             pass
 
@@ -70,6 +73,7 @@ def cleanup_job_artifacts(
                         if job.subtitle_mode == SubtitleMode.NONE:
                             try:
                                 item.unlink()
+                                deleted_files.append(item)
                             except OSError:
                                 pass
                         elif job.subtitle_mode in {SubtitleMode.AUTO, SubtitleMode.MANUAL, SubtitleMode.BOTH}:
@@ -80,6 +84,7 @@ def cleanup_job_artifacts(
                                 if any(e.startswith(lang) for e in embedded_subs):
                                     try:
                                         item.unlink()
+                                        deleted_files.append(item)
                                     except OSError:
                                         pass
 
@@ -98,6 +103,7 @@ def cleanup_job_artifacts(
                         if thumb_embedded is True or job.thumbnail_mode == ThumbnailMode.NONE:
                             try:
                                 item.unlink()
+                                deleted_files.append(item)
                             except OSError:
                                 pass
 
@@ -108,7 +114,10 @@ def cleanup_job_artifacts(
                     ):
                         try:
                             item.unlink()
+                            deleted_files.append(item)
                         except OSError:
                             pass
         except OSError:
             pass
+
+    return deleted_files
