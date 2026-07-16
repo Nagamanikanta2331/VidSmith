@@ -13,6 +13,6 @@ These are documented quirks and intentional behaviors of the system. Do NOT try 
 - **Reason:** UX. Downloading 157 VTT files clutters the UI and output directory.
 
 ## Transcript Availability
-- **Symptom:** Transcript extraction fails.
-- **Cause:** Depends entirely on subtitle availability (manual or auto).
-- **Note:** Unavailable subtitles are not errors; they are data constraints.
+- **Symptom:** Transcript extraction fails if language is unavailable.
+- **Cause:** Depends entirely on subtitle availability (manual or auto) provided by YouTube.
+- **Decision:** The transcript extraction wizard now intercepts "Unavailable" languages and automatically loops back, prompting the user to select an alternative language instead of crashing. Unavailable subtitles are not errors; they are data constraints.

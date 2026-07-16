@@ -11,16 +11,16 @@
 | Transcript | ✅ | Fixed (Language code resolved). |
 | Subtitle Only | ✅ | Fixed (Enum mapped properly). |
 | Thumbnail Only | ✅ | Fixed (Enum mapped properly). |
-| Custom Video | ❌ | Crashing during format selection. |
-| Best Download | ❌ | Blocked by string/int bug. |
+| Custom Video | ✅ | Functional and validated. |
+| Best Download | ✅ | Functional and validated. |
 
 ## 2. Known Bugs
 
 ### BUG-001: String/Int Comparison Crash
 - **Title:** Best Download / Custom Video crashes during format filtering.
 - **Symptoms:** `TypeError: '<=' not supported between instances of 'str' and 'int'`
-- **Status:** Open
-- **Root Cause:** Likely format height or resolution being evaluated as string instead of int during config resolution.
+- **Status:** Fixed
+- **Root Cause:** Format height was evaluated as a string instead of an int during config resolution.
 - **Files:** `executor.py` / `provider` logic
 - **Priority:** Critical
 
@@ -51,7 +51,7 @@
 ### BUG-005: Embedded Cover Art Not Displaying
 - **Title:** Windows Explorer doesn't show embedded cover art for some MP4s.
 - **Symptoms:** The file has `attached picture` in `ffprobe`, but Explorer displays a generic icon.
-- **Status:** Open
-- **Root Cause:** Atomic placement (e.g., moov atom location) or image format (webp vs jpg). `yt-dlp` might need `--convert-thumbnails jpg`.
-- **Files:** yt-dlp arguments
+- **Status:** Fixed
+- **Root Cause:** Solved by utilizing `mutagen` for proper atomic placement in M4A/MP4 formats.
+- **Files:** yt-dlp arguments, post-processors
 - **Priority:** Low

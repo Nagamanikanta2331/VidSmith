@@ -13,10 +13,13 @@ MediaForge has reached its first Release Candidate! This release finalizes the c
 - **Audio Output & Validation**: Decoupled thumbnail generation and metadata tagging to support dynamic, safe embedding for `MP3`, `M4A`, and `FLAC` with full graceful degradation when codecs are missing.
 - **Cleanup Routine**: Strengthened cleanup workflows (`test_cleanup_e2e`) to ensure temporary files (`.part`, `.webp`, `.vtt`) are accurately purged without jeopardizing the final embedded payload.
 - **Subtitle and Transcript Pipelines**: Standardized subtitle download logic to perfectly integrate into the main yt-dlp job structure, guaranteeing consistent retry handling and format fallback.
+- **Transcript UX**: Improved the transcript extraction workflow to gracefully notify the user and restart the wizard if a selected language is unavailable, preventing abrupt exits.
+- **Documentation**: Updated `README.md` with explicit, platform-specific installation instructions for FFmpeg and Node.js/Deno, and clarified that `yt-dlp` is automatically installed.
 
 ### Fixed
 - Fixed issues where ffmpeg crashes would improperly halt the entire validation pipeline instead of degrading gracefully.
 - Removed duplicate artifacts and simplified execution paths across `YouTubeProvider`.
 - Suppressed duplicate metadata injection processes.
+- Fixed a critical `TypeError` string/int comparison bug in Best Download and Custom Video formats filtering.
 
 MediaForge is now feature-complete for its 1.0.0 milestone. Future updates in the RC phase will focus solely on packaging, bug fixes, and optimization.
