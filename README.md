@@ -1,5 +1,8 @@
 # MediaForge
 
+> **🤖 Built by AI**
+> This entire project (including all source code, tests, UI, and documentation) was autonomously generated and engineered by an AI coding assistant in collaboration with the repository owner.
+
 **A production-grade, zero-config YouTube media downloader for your terminal.**
 
 MediaForge wraps the full power of [yt-dlp](https://github.com/yt-dlp/yt-dlp)
