@@ -101,10 +101,10 @@ pip install -e .
 
 ### Updating
 
-Get the newest release from PyPI:
+Get the newest release from PyPI (using `--no-cache-dir` ensures pip doesn't use a stale cached version):
 
 ```bash
-pip install --upgrade vidsmith
+pip install --upgrade --no-cache-dir vidsmith
 ```
 
 Or update straight from GitHub (picks up changes as soon as they are pushed,
@@ -180,7 +180,7 @@ you got.
 | `vidsmith doctor` | Diagnose environment (tools, network, YouTube access) |
 | `vidsmith doctor --no-network` | Same, skipping connectivity checks |
 | `vidsmith --version` | Print the version |
-| `pip install --upgrade vidsmith` | Update to the latest release |
+| `pip install --upgrade --no-cache-dir vidsmith` | Update to the latest release |
 | `pip uninstall vidsmith` | Remove VidSmith |
 
 ---
