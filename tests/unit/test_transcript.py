@@ -171,7 +171,7 @@ def test_execute_transcript_unavailable(mock_show_error, mock_validate, mock_get
         ),
         success=False
     )
-    
+
     mock_wizard_builder.return_value.run.return_value = None
 
     execute_transcript(state, analysis_result)

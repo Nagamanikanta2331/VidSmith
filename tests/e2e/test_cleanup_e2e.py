@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 
 import pytest
-from mediaforge.providers.results import DownloadResultStatus
 
 from mediaforge.downloader.cleanup import cleanup_job_artifacts
 from mediaforge.downloader.job import (  # type: ignore
@@ -13,7 +12,7 @@ from mediaforge.downloader.job import (  # type: ignore
     ThumbnailMode,
 )
 from mediaforge.downloader.validator import validate_download
-from mediaforge.providers.results import DownloadResult
+from mediaforge.providers.results import DownloadResult, DownloadResultStatus
 
 # In a real E2E we'd use YouTubeProvider, but we want a purely isolated cleanup test.
 # We will create mock files that represent a completed download, run validation, and then cleanup.

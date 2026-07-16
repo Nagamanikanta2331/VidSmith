@@ -5,10 +5,10 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mediaforge.providers.results import DownloadResultStatus
 
 from mediaforge.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode  # type: ignore
 from mediaforge.downloader.validator import validate_download
+from mediaforge.providers.results import DownloadResultStatus
 from mediaforge.providers.youtube import DownloadResult
 
 

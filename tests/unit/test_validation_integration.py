@@ -3,7 +3,6 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from mediaforge.providers.results import DownloadResultStatus
 
 from mediaforge.downloader.job import (  # type: ignore
     DownloadJob,
@@ -13,7 +12,7 @@ from mediaforge.downloader.job import (  # type: ignore
 )
 from mediaforge.downloader.validator import validate_download
 from mediaforge.downloader.validators import ValidationErrorCode
-from mediaforge.providers.results import DownloadResult
+from mediaforge.providers.results import DownloadResult, DownloadResultStatus
 
 
 @pytest.fixture
