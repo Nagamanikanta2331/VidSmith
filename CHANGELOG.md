@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.1] - 2026-07-17
+
+### Fixed
+- Fixed the `--version` CLI flag printing `1.0.0` instead of the actual installed version (forgotten hardcoded version bump in `APP_VERSION`).
+
 ## [1.1.0] - 2026-07-16
 
 Playlist speed and completeness release. Update with `pip install --upgrade vidsmith`.
