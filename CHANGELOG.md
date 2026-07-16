@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0] - 2026-07-16
+
+First stable release — published to [PyPI](https://pypi.org/project/vidsmith/): `pip install vidsmith`.
 
 ### Changed
 - **Project renamed: MediaForge → VidSmith.** The previous name collided with an existing PyPI package. The distribution, import package (`vidsmith`), and terminal command (`vidsmith`) are all renamed; the on-screen logo and product name are rebranded. Functionality and behavior are unchanged.

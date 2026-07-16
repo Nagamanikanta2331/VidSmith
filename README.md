@@ -71,7 +71,11 @@ __     ___     _ ____            _ _   _
 
 ## Installation
 
-Install directly from GitHub (recommended until the first PyPI release):
+```bash
+pip install vidsmith
+```
+
+Or install the latest development version from GitHub:
 
 ```bash
 pip install git+https://github.com/Nagamanikanta2331/VidSmith.git
@@ -84,9 +88,6 @@ git clone https://github.com/Nagamanikanta2331/VidSmith.git
 cd VidSmith
 pip install -e .
 ```
-
-> **Note**: `pip install vidsmith` will work once the first release is published
-> to PyPI. Until then, use one of the commands above.
 
 ### Prerequisites
 - **Python 3.12+**
