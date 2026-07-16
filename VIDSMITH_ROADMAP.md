@@ -1,7 +1,7 @@
 # VidSmith Future Roadmap
 
 ## Phase C: Stabilization & Bug Fixes (Completed)
-- [x] Triage and resolve all Open bugs in `MEDIAFORGE_BUG_TRACKER.md`.
+- [x] Triage and resolve all Open bugs in `VIDSMITH_BUG_TRACKER.md`.
 - [x] **Subtitle Redesign:** Ensure auto, manual, and translation subtitles are fetched accurately.
 - **Priority Language Groups:** Implement fallback logic for preferred languages (e.g., native -> eng -> auto).
 - **Subtitle Diagnostics:** Detailed logging for subtitle extraction failures.

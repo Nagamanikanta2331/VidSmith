@@ -41,9 +41,9 @@ For every development session:
 1. Read AI_ONBOARDING.md
 2. Read AI_IMPLEMENTATION_RULES.md
 3. Read implementation_plan.md
-4. Read MEDIAFORGE_ARCHITECTURE.md
-5. Read MEDIAFORGE_BUG_TRACKER.md
-6. Read MEDIAFORGE_COMMAND_REFERENCE.md
+4. Read VIDSMITH_ARCHITECTURE.md
+5. Read VIDSMITH_BUG_TRACKER.md
+6. Read VIDSMITH_COMMAND_REFERENCE.md
 7. Implement ONLY the current P0 task.
 8. Do not continue to the next P0 task without approval.
 9. After implementation:

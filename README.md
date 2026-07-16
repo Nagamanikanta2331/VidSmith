@@ -11,12 +11,11 @@ possible file — same stream selection as the official yt-dlp CLI, with
 subtitles, chapters, metadata, and cover art embedded automatically.
 
 ```text
- __  __          _ _       _____
-|  \/  | ___  __| (_) __ _|  ___|__  _ __ __ _  ___
-| |\/| |/ _ \/ _` | |/ _` | |_ / _ \| '__/ _` |/ _ \
-| |  | |  __/ (_| | | (_| |  _| (_) | | | (_| |  __/
-|_|  |_|\___|\__,_|_|\__,_|_|  \___/|_|  \__, |\___|
-                                          |___/
+__     ___     _ ____            _ _   _
+\ \   / (_) __| / ___| _ __ ___ (_) |_| |__
+ \ \ / /| |/ _` \___ \| '_ ` _ \| | __| '_ \
+  \ V / | | (_| |___) | | | | | | | |_| | | |
+   \_/  |_|\__,_|____/|_| |_| |_|_|\__|_| |_|
 ```
 
 [![CI](https://github.com/Nagamanikanta2331/VidSmith/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagamanikanta2331/VidSmith/actions/workflows/ci.yml)
