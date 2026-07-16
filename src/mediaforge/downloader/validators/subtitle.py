@@ -5,11 +5,11 @@ from mediaforge.downloader.validators.models import (
     SubtitleValidationResult,
     ValidationErrorCode,
 )
-from mediaforge.subtitle import base_language
+from mediaforge.subtitle import language_matches
 
 
 def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationResult) -> None:
-    if ctx.job.subtitle_mode == SubtitleMode.NONE and ctx.job.media_type != DownloadMediaType.TRANSCRIPT:
+    if ctx.job.subtitle_mode == SubtitleMode.NONE and ctx.job.media_type not in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE):
         return
 
     embedded: set[str] = set()
@@ -22,7 +22,7 @@ def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationRes
             parts = f.suffixes
             if len(parts) >= 2:
                 lang = parts[-2].strip(".")
-                sidecars.add(base_language(lang))
+                sidecars.add(lang)
 
     # 2. Check primary output for embedded streams
     if ctx.primary_output and ctx.exists:
@@ -32,36 +32,37 @@ def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationRes
                     if stream.get("codec_type") == "subtitle":
                         lang = stream.get("tags", {}).get("language")
                         if lang:
-                            embedded.add(base_language(lang))
+                            embedded.add(lang)
         else:
             # If the primary file itself is a subtitle (Subtitle Only mode)
             parts = ctx.primary_output.suffixes
             if len(parts) >= 2:
                 lang = parts[-2].strip(".")
-                sidecars.add(base_language(lang))
+                sidecars.add(lang)
 
     downloaded = list(embedded | sidecars)
 
     # 3. Calculate failures against job.subtitle_languages
     requested_base = [
-        base_language(lang)
+        lang
         for lang in (ctx.job.subtitle_requested_languages or ctx.job.subtitle_languages)
         if lang.strip()
     ]
     failed: dict[str, str] = {}
     for lang in requested_base:
-        if lang not in downloaded:
+        # ffprobe normalises embedded codes to three letters (hin/tel/mal…),
+        # so match via the shared language helper instead of exact compare.
+        if not language_matches(lang, downloaded):
             failed[lang] = "Unavailable"
 
     # Merge any explicit yt-dlp failures if they didn't magically download anyway
     for lang, reason in ctx.result.subtitles_failed.items():
-        base = base_language(lang)
-        if base not in downloaded:
-            failed[base] = reason
+        if not language_matches(lang, downloaded):
+            failed[lang] = reason
 
     # 4. Determine subtitle success
     success = True
-    if ctx.job.media_type == DownloadMediaType.TRANSCRIPT and not sidecars:
+    if ctx.job.media_type in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE) and not sidecars:
         success = False
 
     validation.subtitle = SubtitleValidationResult(
@@ -72,14 +73,14 @@ def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationRes
         success=success,
     )
     if not success:
-        validation.fail(ValidationErrorCode.TRANSCRIPT_FAILED, "Validation failed: Transcript download failed to produce a sidecar file.")
+        error_code = ValidationErrorCode.TRANSCRIPT_FAILED if ctx.job.media_type == DownloadMediaType.TRANSCRIPT else ValidationErrorCode.SUBTITLE_FAILED
+        validation.fail(error_code, f"Validation failed: {ctx.job.media_type.value.capitalize()} download failed to produce a sidecar file.")
         return
 
     # Validate EMBED mode success
     if ctx.job.subtitle_mode in {SubtitleMode.AUTO, SubtitleMode.MANUAL, SubtitleMode.BOTH}:
         for lang in getattr(ctx.result, "subtitles_downloaded", []):
-            base = base_language(lang)
-            if base not in embedded:
+            if not language_matches(lang, embedded):
                 validation.fail(
                     ValidationErrorCode.SUBTITLE_MISSING,
                     f"Validation failed: Subtitle '{lang}' failed to embed in {ctx.primary_output.name if ctx.primary_output else 'output'}. Temporary files preserved."

@@ -64,12 +64,13 @@ def test_dynamic_subtitle_languages() -> None:
     choices = _dynamic_subtitle_choices(state)
 
     assert len(choices) == 3
-    assert choices[0].label == "English"
-    assert choices[0].description == "Manual"
+    # Priority order is te → hi → ta → en (then other Indian languages).
+    assert choices[0].label == "Telugu (Auto)"
+    assert choices[0].description == "Auto-generated"
     assert choices[1].label == "Hindi"
     assert choices[1].description == "Manual"
-    assert choices[2].label == "Telugu (Auto)"
-    assert choices[2].description == "Auto-generated"
+    assert choices[2].label == "English"
+    assert choices[2].description == "Manual"
 
 
 def test_dynamic_audio_languages() -> None:
@@ -108,8 +109,11 @@ def test_best_download_defaults() -> None:
     assert job.video_format == "mp4"
     assert job.format_selector == ""
     assert job.subtitle_mode == SubtitleMode.BOTH
-    assert job.subtitle_languages == ["en", "hi"]
-    assert job.subtitle_requested_languages == ["en", "hi", "te", "ta", "mr", "bn", "ml", "pa", "gu", "ur"]
+    # Priority order te → hi → ta → en: hi/en resolve to their manual tracks.
+    assert job.subtitle_languages == ["hi", "en"]
+    # Only the four supported languages are ever requested — each track costs
+    # a throttled request before media starts, so the list must stay small.
+    assert job.subtitle_requested_languages == ["te", "hi", "ta", "en"]
     assert job.thumbnail_mode == ThumbnailMode.EMBED
     assert job.metadata_mode == MetadataMode.EMBED
 

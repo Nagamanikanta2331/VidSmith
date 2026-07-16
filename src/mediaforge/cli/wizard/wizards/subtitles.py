@@ -5,37 +5,33 @@ from mediaforge.cli.wizard.steps import (
     Choice,
     ChoiceStep,
     ConfirmationStep,
+    MultiSelectStep,
     TextInputStep,
-    ToggleStep,
 )
-from mediaforge.settings.store import default_download_dir
 from mediaforge.models.media import AnalysisResult
+from mediaforge.settings.store import default_download_dir
 from mediaforge.subtitle import PRIORITY_ALL, SUBTITLE_LANGUAGE_NAMES
 
-_SOURCE_CHOICES = [
-    Choice("Auto-generated", "auto", "AI captions from YouTube"),
-    Choice("Manual captions", "manual", "Human-created subtitles"),
-]
 
 _FORMAT_CHOICES = [
-    Choice("TXT", "txt", "Plain text, one line per segment"),
-    Choice("SRT", "srt", "SubRip — widely supported"),
     Choice("VTT", "vtt", "WebVTT — web standard"),
-    Choice("JSON", "json", "Structured data with timestamps"),
+    Choice("SRT", "srt", "SubRip — widely supported"),
+    Choice("JSON", "json", "Structured JSON data"),
+    Choice("TXT", "txt", "Plain text"),
 ]
 
 _SUMMARY = [
-    ("caption_source", "Caption Source"),
-    ("language", "Language"),
+    ("languages", "Languages"),
     ("output_format", "Format"),
-    ("include_timestamps", "Include Timestamps"),
     ("output_dir", "Save to"),
 ]
 
 
-def build_transcript_wizard(result: AnalysisResult | None = None) -> Wizard:
-    # Same priority-language filter as the subtitles wizard: te/hi/ta/en plus
-    # the other Indian languages, one entry per base language, manual first.
+def build_subtitles_wizard(result: AnalysisResult | None = None) -> Wizard:
+    # Offer only the priority languages (te/hi/ta/en + other Indian
+    # languages), in policy order, each base language once — manual over
+    # auto. Everything else is filtered to keep the request count (and the
+    # YouTube rate-limit exposure) small.
     lang_choices = []
     if result:
         manual = result.subtitle_languages or []
@@ -57,41 +53,23 @@ def build_transcript_wizard(result: AnalysisResult | None = None) -> Wizard:
             if code is not None:
                 lang_choices.append(Choice(f"{name} (Auto)", code, "Auto-generated"))
 
-    # If no languages found at all, we must provide at least one choice to not crash the wizard
     if not lang_choices:
         lang_choices = [Choice("None", "none")]
-    
-    lang_choices.append(Choice("Auto-detect", "auto"))
 
     return Wizard(
-        title="Extract Transcript",
+        title="Download Subtitles",
         steps=[
-            ChoiceStep(
-                key="caption_source",
-                title="Caption Source",
-                choices=_SOURCE_CHOICES,
-                default_index=0,
-            ),
-            ChoiceStep(
-                key="language",
-                title="Language",
+            MultiSelectStep(
+                key="languages",
+                title="Languages",
                 choices=lang_choices,
-                default_index=0,
+                min_selections=1,
             ),
             ChoiceStep(
                 key="output_format",
                 title="Output Format",
                 choices=_FORMAT_CHOICES,
                 default_index=0,
-            ),
-            ToggleStep(
-                key="include_timestamps",
-                title="Timestamps",
-                prompt_label="Include timestamps in output?",
-                default=False,
-                description="Only available for TXT format.",
-                # Only meaningful for plain text; SRT/VTT/JSON always carry timestamps
-                skip_when=lambda s: s.get("output_format", "txt") != "txt",
             ),
             TextInputStep(
                 key="output_dir",

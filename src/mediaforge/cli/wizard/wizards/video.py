@@ -12,10 +12,8 @@ from mediaforge.cli.wizard.steps import (
 from mediaforge.models.media import AnalysisResult
 from mediaforge.settings.store import current_settings, default_download_dir
 from mediaforge.subtitle import (
+    PRIORITY_ALL,
     SUBTITLE_LANGUAGE_NAMES,
-    SUPPORTED_SUBTITLE_LANGUAGES,
-    base_language,
-    is_supported_language,
 )
 
 _LANG_NAMES = {
@@ -108,32 +106,42 @@ def _dynamic_subtitle_choices(state: WizardState) -> list[Choice]:
     """One choice per supported language (en/hi/te/ta), manual over auto.
 
     A language backed only by auto-generated captions is labelled
-    "<Name> (Auto)"; unavailable languages are omitted, so each language
-    appears at most once. Values are base language codes — the job builder
-    re-resolves the exact source track.
+    "<Name> (Auto)"; unavailable languages are omitted. YouTube often lists
+    several variants per base language (en, en-US, en-orig), so each base
+    appears exactly once: the first manual variant, else the first auto
+    variant. Values are base language codes — the job builder re-resolves
+    the exact source track.
     """
     result: AnalysisResult | None = state.get("__media__")
     if not result:
         return []
 
-    manual_bases = {
-        base_language(code)
-        for code in (result.subtitle_languages or [])
-        if is_supported_language(code)
-    }
-    auto_bases = {
-        base_language(code)
-        for code in (result.automatic_subtitle_languages or [])
-        if is_supported_language(code)
-    }
-
     choices = []
-    for base in SUPPORTED_SUBTITLE_LANGUAGES:
+
+    manual_subs = result.subtitle_languages or []
+    auto_subs = result.automatic_subtitle_languages or []
+
+    def _first_match(codes: list[str], base: str) -> str | None:
+        # TODO(v1.2): if per-variant selection becomes meaningful, surface
+        # distinct labels ("English", "English (US)", "English (Original)")
+        # instead of collapsing to the first variant.
+        for code in codes:
+            if code.split("-")[0].strip().lower() == base:
+                return code
+        return None
+
+    for base in PRIORITY_ALL:
         name = SUBTITLE_LANGUAGE_NAMES[base]
-        if base in manual_bases:
-            choices.append(Choice(name, base, "Manual"))
-        elif base in auto_bases:
-            choices.append(Choice(f"{name} (Auto)", base, "Auto-generated"))
+
+        manual = _first_match(manual_subs, base)
+        if manual is not None:
+            choices.append(Choice(name, manual, "Manual"))
+            continue
+
+        auto = _first_match(auto_subs, base)
+        if auto is not None:
+            choices.append(Choice(f"{name} (Auto)", auto, "Auto-generated"))
+
     return choices
 
 
@@ -142,7 +150,7 @@ def _has_no_subtitles(state: WizardState) -> bool:
     if not result:
         return True
     all_subs = (result.subtitle_languages or []) + (result.automatic_subtitle_languages or [])
-    return not any(is_supported_language(code) for code in all_subs)
+    return not any(code.split("-")[0].strip().lower() in PRIORITY_ALL for code in all_subs)
 
 
 def _dynamic_audio_choices(state: WizardState) -> list[Choice]:

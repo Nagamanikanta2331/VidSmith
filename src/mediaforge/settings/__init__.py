@@ -23,7 +23,7 @@ class AppSettings:
     # Phase B additions.
     default_output_directory: str = ""  # "" → fall back to ~/Downloads
     default_container: str = "mp4"  # mp4 | mkv | webm
-    subtitle_delay_seconds: int = 125
+    subtitle_delay_seconds: int = 0
     cleanup_enabled: bool = True
     keep_temp_files: bool = False
     node_path_override: str = ""

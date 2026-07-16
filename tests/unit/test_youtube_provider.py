@@ -59,6 +59,40 @@ class TestSubtitleFailureCapture:
         logger.warning("Some unrelated warning about formats")
         assert logger.subtitle_failures == {}
 
+    def test_logger_captures_last_error(self) -> None:
+        logger = _SubtitleLogger()
+        logger.error("ERROR: [youtube] sjAoqae8MYE: Sign in to confirm you're not a bot")
+        assert "Sign in to confirm" in logger.last_error
+
+
+class TestThumbnailFormatOptions:
+    def setup_method(self) -> None:
+        self.provider = YouTubeProvider()
+
+    def _thumbnail_job(self, thumbnail_format: str = ""):
+        from pathlib import Path
+
+        from mediaforge.downloader.job import DownloadJob, DownloadMediaType, ThumbnailMode
+
+        return DownloadJob(
+            url="https://youtube.com/watch?v=123",
+            media_type=DownloadMediaType.THUMBNAIL,
+            output_dir=Path("/tmp/dummy"),
+            thumbnail_mode=ThumbnailMode.SAVE,
+            thumbnail_format=thumbnail_format,
+        )
+
+    def test_no_format_keeps_original(self) -> None:
+        options = self.provider._build_download_options(self._thumbnail_job(), None)
+        assert options["postprocessors"] == []
+
+    def test_format_adds_convertor(self) -> None:
+        options = self.provider._build_download_options(self._thumbnail_job("png"), None)
+        assert options["postprocessors"] == [
+            {"key": "FFmpegThumbnailsConvertor", "format": "png", "when": "before_dl"}
+        ]
+        assert options["skip_download"] is True
+
 
 class TestResultMetadata:
     def setup_method(self) -> None:

@@ -27,6 +27,7 @@ from mediaforge.cli.wizard.wizards import (
     build_transcript_wizard,
     build_video_wizard,
 )
+from mediaforge.cli.wizard.wizards.subtitles import build_subtitles_wizard
 from mediaforge.models.media import AnalysisResult
 from mediaforge.utils.console import console
 
@@ -34,6 +35,7 @@ _BUILT_IN: dict[str, Callable[[], Wizard]] = {
     "video": build_video_wizard,
     "audio": build_audio_wizard,
     "transcript": build_transcript_wizard,
+    "subtitles": build_subtitles_wizard,
     "playlist_video": build_playlist_wizard,
     "playlist_audio": build_playlist_wizard,
     "settings": build_settings_wizard,
@@ -44,6 +46,7 @@ _EXECUTORS: dict[str, str] = {
     "video": "execute_video",
     "audio": "execute_audio",
     "transcript": "execute_transcript",
+    "subtitles": "execute_subtitles",
     "playlist_video": "execute_playlist",
     "playlist_audio": "execute_playlist",
 }
@@ -52,7 +55,6 @@ _EXECUTORS: dict[str, str] = {
 _DIRECT_EXECUTORS: dict[str, str] = {
     "best_download": "execute_best_download",
     "best_playlist_download": "execute_best_playlist_download",
-    "subtitles": "execute_subtitles",
     "thumbnail": "execute_thumbnail",
     "metadata": "execute_metadata",
 }
@@ -86,7 +88,13 @@ def dispatch_wizard(action: str, result: AnalysisResult | None = None) -> None:
         _show_coming_soon(action)
         return
 
-    wizard = factory()
+    import inspect
+    sig = inspect.signature(factory)
+    if "result" in sig.parameters:
+        wizard = factory(result=result)
+    else:
+        wizard = factory()
+        
     initial: dict = {}
     if result is not None:
         initial["__media__"] = result

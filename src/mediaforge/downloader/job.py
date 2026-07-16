@@ -15,6 +15,8 @@ class DownloadMediaType(str, Enum):
     VIDEO = "video"
     AUDIO = "audio"
     TRANSCRIPT = "transcript"
+    SUBTITLE = "subtitle"
+    THUMBNAIL = "thumbnail"
     PLAYLIST = "playlist"
 
 
@@ -86,6 +88,9 @@ class DownloadJob:
     subtitle_auto_languages: list[str] = field(default_factory=list)
     subtitle_mode: SubtitleMode = SubtitleMode.NONE
     thumbnail_mode: ThumbnailMode = ThumbnailMode.NONE
+    # Target image format for saved thumbnails ("jpg"/"png"/"webp");
+    # "" keeps whatever format yt-dlp downloaded.
+    thumbnail_format: str = ""
     metadata_mode: MetadataMode = MetadataMode.EMBED
     audio_format: str = "mp3"
     audio_quality: str = "192k"
@@ -114,6 +119,14 @@ class DownloadJob:
     @property
     def is_transcript(self) -> bool:
         return self.media_type == DownloadMediaType.TRANSCRIPT
+
+    @property
+    def is_subtitle(self) -> bool:
+        return self.media_type == DownloadMediaType.SUBTITLE
+
+    @property
+    def is_thumbnail(self) -> bool:
+        return self.media_type == DownloadMediaType.THUMBNAIL
 
     def mark_running(self) -> None:
         self.status = JobStatus.RUNNING

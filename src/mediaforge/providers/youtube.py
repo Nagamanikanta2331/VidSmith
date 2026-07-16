@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import re
+import time
 import typing
 from collections.abc import Iterable
 from pathlib import Path
@@ -42,14 +44,21 @@ from mediaforge.providers.metadata import (
     YouTubeMetadata,
 )
 from mediaforge.providers.results import DownloadResult, DownloadResultStatus
-from mediaforge.subtitle import is_supported_language
-from mediaforge.utils.environment import js_runtimes_option
+from mediaforge.utils.environment import environment_summary, js_runtimes_option
 from mediaforge.utils.exceptions import AnalysisError, DownloadError, UnsupportedURLError
 from mediaforge.utils.validators import is_youtube_url
 
 
 class _DownloadCancelled(Exception):
     """Internal signal used to stop yt-dlp from a progress hook."""
+
+
+_logger = logging.getLogger("mediaforge.provider.youtube")
+
+# Hard cap for the per-subtitle-request throttle. yt-dlp sleeps this long
+# before EVERY subtitle track (fetched before media), so total pre-download
+# wait is delay × track count — 15s × 4 tracks is already a full minute.
+_MAX_SUBTITLE_SLEEP = 15
 
 
 class _SubtitleLogger:
@@ -59,6 +68,10 @@ class _SubtitleLogger:
     ``Unable to download video subtitles for 'ar': HTTP Error 429``.  We capture
     those so the summary can list which languages failed and why, without
     un-suppressing the rest of yt-dlp's chatter.
+
+    Everything yt-dlp says is also forwarded to the ``mediaforge`` debug log,
+    so with Debug Logging enabled the full diagnostic stream (extraction steps,
+    retries, JS-runtime output) lands in mediaforge.log instead of vanishing.
     """
 
     _SUB_WARNING = re.compile(
@@ -67,8 +80,11 @@ class _SubtitleLogger:
 
     def __init__(self) -> None:
         self.subtitle_failures: dict[str, str] = {}
-        import logging
+        # Last error line yt-dlp reported — surfaced when extract_info()
+        # returns None instead of raising (ignoreerrors swallows the raise).
+        self.last_error: str = ""
         self.logger = logging.getLogger("mediaforge.subtitle")
+        self._ytdlp_logger = logging.getLogger("mediaforge.ytdlp")
 
     def _record(self, message: str) -> None:
         match = self._SUB_WARNING.search(message)
@@ -82,17 +98,29 @@ class _SubtitleLogger:
 
     # yt-dlp calls debug/info/warning/error on its logger.
     def debug(self, message: str) -> None:
+        self._ytdlp_logger.debug(message)
         if message and not message.startswith("[debug]"):
             self._record(message)
 
     def info(self, message: str) -> None:
+        self._ytdlp_logger.info(message)
         self._record(message)
 
     def warning(self, message: str) -> None:
+        self._ytdlp_logger.warning(message)
         self._record(message)
 
     def error(self, message: str) -> None:
+        self._ytdlp_logger.error(message)
+        if message.strip():
+            self.last_error = message.strip()
         self._record(message)
+
+
+def _short_error(message: str) -> str:
+    """First line of a yt-dlp error, trimmed to fit a one-line progress label."""
+    first_line = message.strip().splitlines()[0] if message.strip() else "Unknown error"
+    return first_line if len(first_line) <= 80 else first_line[:77] + "..."
 
 
 def _classify_subtitle_reason(reason: str) -> str:
@@ -124,6 +152,13 @@ class YouTubeProvider(Provider):
         self.client = client
         self._metadata_cache: dict[str, dict[str, Any]] = {}
         self._metadata_cache_size = int(self.config.get("metadata_cache_size", 16))
+        # job_id → (current stage, monotonic start time) for stage timing logs.
+        self._stage_started: dict[str, tuple[DownloadStage, float]] = {}
+        # Guarded because building the summary shells out to ffmpeg/node;
+        # cached in environment_summary(), so repeated provider rebuilds (e.g.
+        # after a settings change) don't re-probe binaries.
+        if _logger.isEnabledFor(logging.DEBUG):
+            _logger.debug("Environment: %s", environment_summary())
 
     def analyze(self, url: str) -> YouTubeMetadata:
         """Retrieve and normalize YouTube metadata without downloading media."""
@@ -253,13 +288,48 @@ class YouTubeProvider(Provider):
         # A custom logger only receives warnings when no_warnings is False; the
         # logger itself stays silent, so the console output is unchanged.
         subtitle_logger = _SubtitleLogger()
-        run_options = {**options, "logger": subtitle_logger, "no_warnings": False}
+        run_options: dict[str, Any] = {**options, "logger": subtitle_logger, "no_warnings": False}
 
-        for attempt in range(1, attempts + 1):
+        # One-line record of what we actually ask yt-dlp for — the exact data
+        # needed to reproduce a MediaForge download with the official CLI.
+        # Cookies are logged even while always None so a diff against a manual
+        # `--cookies-from-browser` CLI run makes the gap obvious.
+        _logger.debug(
+            "yt-dlp run: url=%s format=%r js_runtimes=%r subtitleslangs=%r merge=%r "
+            "cookiesfrombrowser=%r cookiefile=%r",
+            normalized_url,
+            run_options.get("format"),
+            run_options.get("js_runtimes"),
+            run_options.get("subtitleslangs"),
+            run_options.get("merge_output_format"),
+            run_options.get("cookiesfrombrowser"),
+            run_options.get("cookiefile"),
+        )
+
+        attempt = 1
+        while attempt <= attempts:
             try:
                 self._raise_if_cancelled(job)
                 self._emit_stage(progress_callback, job, DownloadStage.EXTRACTING)
-                self._emit_stage(progress_callback, job, DownloadStage.SELECTING)
+                # A configured subtitle throttle makes yt-dlp sleep BEFORE each
+                # subtitle request (subtitles come before media), so a large
+                # delay looks exactly like a hang unless the label says so.
+                sleep_s = int(run_options.get("sleep_interval_subtitles", 0) or 0)
+                sub_langs: list[str] = list(run_options.get("subtitleslangs") or [])
+                select_message = stage_label(DownloadStage.SELECTING)
+                if sleep_s > 0 and sub_langs and not options.get("skip_download"):
+                    select_message += (
+                        f" — subtitle throttle {sleep_s}s × {len(sub_langs)} track(s), "
+                        f"expect ~{sleep_s * len(sub_langs)}s before media starts"
+                    )
+                self._emit_progress(
+                    progress_callback,
+                    DownloadProgress(
+                        job_id=job.job_id,
+                        stage=DownloadStage.SELECTING,
+                        message=select_message,
+                    ),
+                )
                 with YoutubeDL(typing.cast(typing.Any, run_options)) as ydl:
                     raw_info = ydl.extract_info(normalized_url, download=True)
                     info = ydl.sanitize_info(raw_info)
@@ -275,18 +345,126 @@ class YouTubeProvider(Provider):
                 )
             except Exception as exc:
                 last_error = str(exc)
+                
+                sub_err = re.search(r"Unable to download video subtitles for '([^']+)'", last_error)
+                if sub_err:
+                    failed_lang = sub_err.group(1)
+                    if attempt >= attempts:
+                        _logger.warning("Skipping failing subtitle language '%s' after %d attempts.", failed_lang, attempts)
+                        langs = list(run_options.get("subtitleslangs", []))
+                        if failed_lang in langs:
+                            langs.remove(failed_lang)
+                        if langs:
+                            run_options["subtitleslangs"] = langs
+                        else:
+                            run_options["subtitleslangs"] = []
+                            run_options["writesubtitles"] = False
+                            run_options["writeautomaticsub"] = False
+                        attempts += 1
+                    else:
+                        run_options["sleep_interval_subtitles"] = int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
+
+                _logger.warning(
+                    "Attempt %d/%d failed for %s: %s", attempt, attempts, normalized_url, last_error
+                )
                 if attempt >= attempts:
                     raise DownloadError(
                         f"YouTube {media_type} download failed after {attempts} attempts: {last_error}"
                     ) from None
+                # Tell the user we are retrying and why, instead of leaving the
+                # spinner frozen on the previous stage for the whole retry cycle.
+                self._emit_progress(
+                    progress_callback,
+                    DownloadProgress(
+                        job_id=job.job_id,
+                        stage=DownloadStage.RETRYING,
+                        message=f"⚠ Retrying ({attempt + 1}/{attempts}): {_short_error(last_error)}",
+                    ),
+                )
+                attempt += 1
                 continue
 
             if not isinstance(info, dict):
-                raise DownloadError("YouTube download returned an invalid response.")
+                # With ignoreerrors set, yt-dlp reports fatal failures through
+                # its logger and returns None instead of raising — surface the
+                # real reason and retry like any other failure.
+                last_error = subtitle_logger.last_error or "YouTube returned no data (no error reported)."
+                
+                sub_err = re.search(r"Unable to download video subtitles for '([^']+)'", last_error)
+                if sub_err:
+                    failed_lang = sub_err.group(1)
+                    if attempt >= attempts:
+                        _logger.warning("Skipping failing subtitle language '%s' after %d attempts.", failed_lang, attempts)
+                        langs = list(run_options.get("subtitleslangs", []))
+                        if failed_lang in langs:
+                            langs.remove(failed_lang)
+                        if langs:
+                            run_options["subtitleslangs"] = langs
+                        else:
+                            run_options["subtitleslangs"] = []
+                            run_options["writesubtitles"] = False
+                            run_options["writeautomaticsub"] = False
+                        attempts += 1
+                    else:
+                        run_options["sleep_interval_subtitles"] = int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
+
+                _logger.warning(
+                    "Attempt %d/%d returned no info for %s: %s",
+                    attempt,
+                    attempts,
+                    normalized_url,
+                    last_error,
+                )
+                if attempt >= attempts:
+                    raise DownloadError(
+                        f"YouTube {media_type} download failed after {attempts} attempts: {last_error}"
+                    )
+                self._emit_progress(
+                    progress_callback,
+                    DownloadProgress(
+                        job_id=job.job_id,
+                        stage=DownloadStage.RETRYING,
+                        message=f"⚠ Retrying ({attempt + 1}/{attempts}): {_short_error(last_error)}",
+                    ),
+                )
+                attempt += 1
+                continue
 
             self._remember_metadata(normalized_url, info)
+            # Rate-limited subtitle tracks are warnings (never fatal), so the
+            # media download "succeeds" while languages are missing. Recover
+            # them now with an escalating-delay retry ladder before building
+            # the result, so the summary and cleanup see the recovered files.
+            extra_subtitle_files = self._retry_rate_limited_subtitles(
+                job, normalized_url, run_options, subtitle_logger, progress_callback
+            )
+            if extra_subtitle_files and media_type == "video":
+                media_file = next(
+                    (
+                        f
+                        for f in self._downloaded_files(info)
+                        if f.suffix.lower()
+                        not in {".vtt", ".srt", ".ass", ".lrc", ".ttml", ".jpg", ".jpeg", ".png", ".webp", ".json"}
+                    ),
+                    None,
+                )
+                if media_file is not None:
+                    self._emit_progress(
+                        progress_callback,
+                        DownloadProgress(
+                            job_id=job.job_id,
+                            stage=DownloadStage.PROCESSING_SUBTITLES,
+                            message="Embedding recovered subtitles",
+                        ),
+                    )
+                    self._embed_recovered_subtitles(job, media_file, extra_subtitle_files)
             result = self._download_result(
-                job, normalized_url, info, media_type, subtitle_logger.subtitle_failures
+                job,
+                normalized_url,
+                info,
+                media_type,
+                subtitle_logger.subtitle_failures,
+                extra_files=extra_subtitle_files,
             )
             self._emit_progress(
                 progress_callback,
@@ -301,6 +479,225 @@ class YouTubeProvider(Provider):
 
         raise DownloadError(f"YouTube {media_type} download failed: {last_error}")
 
+    # Escalating per-retry delay for rate-limited subtitle tracks: +5s per
+    # attempt (5, 10, 15, 20, 25s), up to 5 tries per language, then skip.
+    _SUBTITLE_RETRY_STEP = 5
+    _SUBTITLE_RETRY_MAX = 5
+
+    def _retry_rate_limited_subtitles(
+        self,
+        job: DownloadJob,
+        url: str,
+        run_options: dict[str, Any],
+        subtitle_logger: _SubtitleLogger,
+        progress_callback: ProgressCallback | None,
+    ) -> list[Path]:
+        """Re-fetch subtitle tracks that YouTube rate-limited (HTTP 429).
+
+        The main download treats a failed subtitle as a warning and moves on,
+        so this runs afterwards: one subtitle-only yt-dlp pass per retry
+        round, waiting 5s more before each round (5, 10, … 25s), until every
+        language succeeded or 5 rounds passed. Languages that recover are removed
+        from ``subtitle_logger.subtitle_failures`` so the summary reports
+        them as downloaded; the returned sidecar paths are appended to the
+        download result for validation/cleanup.
+        """
+        failed = {
+            lang: reason
+            for lang, reason in subtitle_logger.subtitle_failures.items()
+            if "429" in reason or "Rate Limited" in reason
+        }
+        if not failed:
+            return []
+
+        recovered_files: list[Path] = []
+        remaining = list(failed)
+
+        for attempt in range(1, self._SUBTITLE_RETRY_MAX + 1):
+            if not remaining:
+                break
+            # The media file is already on disk; a cancel during the retry
+            # ladder just stops the subtitle recovery, never the download.
+            if job.status == JobStatus.CANCELLED:
+                return recovered_files
+            delay = self._SUBTITLE_RETRY_STEP * attempt
+            self._emit_progress(
+                progress_callback,
+                DownloadProgress(
+                    job_id=job.job_id,
+                    stage=DownloadStage.RETRYING,
+                    message=(
+                        f"⚠ Subtitles rate-limited ({', '.join(remaining)}) — "
+                        f"waiting {delay}s, retry {attempt}/{self._SUBTITLE_RETRY_MAX}"
+                    ),
+                ),
+            )
+            for _ in range(delay):
+                if job.status == JobStatus.CANCELLED:
+                    return recovered_files
+                time.sleep(1)
+
+            retry_logger = _SubtitleLogger()
+            retry_options: dict[str, Any] = {
+                **run_options,
+                "logger": retry_logger,
+                "no_warnings": False,
+                "skip_download": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": list(remaining),
+                "embedsubtitles": False,
+                "embedthumbnail": False,
+                "writethumbnail": False,
+                "addmetadata": False,
+                "postprocessors": [],
+            }
+            try:
+                with YoutubeDL(typing.cast(typing.Any, retry_options)) as ydl:
+                    raw_info = ydl.extract_info(url, download=True)
+                    info = ydl.sanitize_info(raw_info)
+            except _DownloadCancelled:
+                return recovered_files
+            except Exception as exc:  # noqa: BLE001 — a retry round must never kill the download
+                _logger.warning("Subtitle retry %d failed entirely: %s", attempt, exc)
+                continue
+
+            still_failed = set(retry_logger.subtitle_failures)
+            newly_recovered = [lang for lang in remaining if lang not in still_failed]
+            if newly_recovered and isinstance(info, dict):
+                recovered_files.extend(
+                    f
+                    for f in self._downloaded_files(info)
+                    if f.suffix.lower() in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}
+                )
+                for lang in newly_recovered:
+                    subtitle_logger.subtitle_failures.pop(lang, None)
+                    _logger.info(
+                        "Recovered rate-limited subtitle '%s' on retry %d.", lang, attempt
+                    )
+            remaining = [lang for lang in remaining if lang in still_failed]
+
+        for lang in remaining:
+            _logger.warning(
+                "Skipping subtitle '%s' after %d rate-limit retries.",
+                lang,
+                self._SUBTITLE_RETRY_MAX,
+            )
+        return recovered_files
+
+    # Subtitle codec ffmpeg must write per container when muxing recovered
+    # sidecars into the finished file.
+    _SUBTITLE_MUX_CODECS = {
+        ".mp4": "mov_text",
+        ".m4v": "mov_text",
+        ".mov": "mov_text",
+        ".mkv": "srt",
+        ".webm": "webvtt",
+    }
+
+    def _embed_recovered_subtitles(
+        self,
+        job: DownloadJob,
+        media_file: Path,
+        subtitle_files: list[Path],
+    ) -> None:
+        """Mux retry-recovered sidecar subtitles into the finished container.
+
+        Tracks recovered by the rate-limit retry ladder arrive after yt-dlp's
+        postprocessing, so FFmpegEmbedSubtitle never saw them and they would
+        stay behind as stray .vtt files. Remux them in with a stream copy
+        (no re-encode, takes seconds). Strictly best-effort: on any failure
+        the original file is untouched and the sidecar is kept — exactly the
+        pre-existing behaviour.
+        """
+        from mediaforge.subtitle import ISO_639_2
+
+        if job.media_type != DownloadMediaType.VIDEO or not self._embeds_subtitles(job):
+            return
+        sub_codec = self._SUBTITLE_MUX_CODECS.get(media_file.suffix.lower())
+        if sub_codec is None or not media_file.exists():
+            return
+        subs = [f for f in subtitle_files if f.exists() and f.suffix.lower() in {".vtt", ".srt"}]
+        if not subs:
+            return
+
+        ffmpeg = which("ffmpeg")
+        if not ffmpeg:
+            # yt-dlp's ffmpeg_location may be the binary itself or its folder.
+            location = self._ffmpeg_location_option().get("ffmpeg_location", "")
+            candidate = Path(location) if location else None
+            if candidate is not None and candidate.is_file():
+                ffmpeg = str(candidate)
+            elif candidate is not None and candidate.is_dir():
+                for name in ("ffmpeg.exe", "ffmpeg"):
+                    if (candidate / name).exists():
+                        ffmpeg = str(candidate / name)
+                        break
+        ffprobe = which("ffprobe")
+        if not ffmpeg or not ffprobe:
+            _logger.info("ffmpeg/ffprobe unavailable — recovered subtitles stay as sidecars.")
+            return
+
+        import json as _json
+        import os
+        import subprocess
+
+        try:
+            probe = subprocess.run(
+                [
+                    ffprobe, "-v", "error", "-select_streams", "s",
+                    "-show_entries", "stream=index", "-of", "json", str(media_file),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            existing_subs = len(_json.loads(probe.stdout).get("streams", []))
+        except Exception as exc:  # noqa: BLE001 — best-effort only
+            _logger.warning("Could not probe %s before subtitle mux: %s", media_file.name, exc)
+            return
+
+        tmp_file = media_file.with_name(f"{media_file.stem}.submux{media_file.suffix}")
+        cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(media_file)]
+        for sub in subs:
+            cmd += ["-i", str(sub)]
+        cmd += ["-map", "0"]
+        for i in range(len(subs)):
+            cmd += ["-map", f"{i + 1}:0"]
+        # -strict -2: opus-in-mp4 (Best Download's usual audio) is still gated
+        # as experimental by ffmpeg's mp4 muxer, even for stream copies.
+        cmd += ["-c", "copy", "-c:s", sub_codec, "-strict", "-2"]
+        for i, sub in enumerate(subs):
+            parts = sub.suffixes
+            base = parts[-2].strip(".").split("-")[0].lower() if len(parts) >= 2 else ""
+            iso3 = ISO_639_2.get(base)
+            if iso3:
+                cmd += [f"-metadata:s:s:{existing_subs + i}", f"language={iso3}"]
+        cmd += [str(tmp_file)]
+
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if (
+                proc.returncode != 0
+                or not tmp_file.exists()
+                or tmp_file.stat().st_size < media_file.stat().st_size * 0.9
+            ):
+                _logger.warning(
+                    "Muxing recovered subtitles into %s failed (rc=%s): %s",
+                    media_file.name,
+                    proc.returncode,
+                    (proc.stderr or "").strip()[:500],
+                )
+                tmp_file.unlink(missing_ok=True)
+                return
+            os.replace(tmp_file, media_file)
+            _logger.info(
+                "Embedded %d recovered subtitle track(s) into %s.", len(subs), media_file.name
+            )
+        except Exception as exc:  # noqa: BLE001 — never fail the download over this
+            _logger.warning("Subtitle mux into %s failed: %s", media_file.name, exc)
+            tmp_file.unlink(missing_ok=True)
+
     def _build_download_options(
         self,
         job: DownloadJob,
@@ -309,7 +706,7 @@ class YouTubeProvider(Provider):
         options = self._base_download_options(job, progress_callback)
 
         # Artifact-only downloads (subtitles/thumbnail only)
-        if job.media_type == DownloadMediaType.TRANSCRIPT:
+        if job.media_type in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE, DownloadMediaType.THUMBNAIL):
             options.update(
                 {
                     "skip_download": True,
@@ -320,6 +717,27 @@ class YouTubeProvider(Provider):
                     "postprocessors": [],
                 }
             )
+            
+            # Adaptive delay for HTTP 429 errors during subtitle-only downloads:
+            # 5s more per retry (5, 10, 15, 20, 25s), up to 5 tries.
+            if job.media_type == DownloadMediaType.SUBTITLE:
+                options["retries"] = 5
+                options["retry_sleep"] = {"http": "linear=5:25:5"}
+
+            # Convert the saved thumbnail to the user's chosen image format
+            # (jpg/png/webp). Empty means "keep whatever YouTube served".
+            if job.media_type == DownloadMediaType.THUMBNAIL and job.thumbnail_format:
+                options["postprocessors"] = [
+                    {
+                        "key": "FFmpegThumbnailsConvertor",
+                        "format": job.thumbnail_format,
+                        "when": "before_dl",
+                    }
+                ]
+            
+            if job.media_type == DownloadMediaType.SUBTITLE and getattr(job, "transcript_format", ""):
+                options["subtitlesformat"] = "vtt"  # Ensure we download vtt for the postprocessor
+
             return options
 
         # Audio Download
@@ -387,12 +805,31 @@ class YouTubeProvider(Provider):
             "socket_timeout": 20,
             "http_chunk_size": 10 * 1024 * 1024,
             "progress_delta": 0.2,
-            # Ignore download errors (like subtitle HTTP 429) so they don't abort
-            # the entire process. The executor will validate the main media files.
-            "ignoreerrors": "only_download",
-            # Throttling each subtitle request keeps YouTube from rate-limiting
-            "sleep_interval_subtitles": int(self.config.get("subtitle_sleep_interval", 1)),
+            # Subtitle/postprocessing failures must not abort the media
+            # download. NOTE: yt-dlp only downgrades a failed subtitle track
+            # to a warning when ignoreerrors is exactly True — with
+            # "only_download" it RAISES (YoutubeDL._write_subtitles), killing
+            # the whole video over one 429. Real media failures still surface:
+            # yt-dlp reports them and returns None, which _run_download turns
+            # into a retry/DownloadError, and the executor validates the final
+            # files either way.
+            "ignoreerrors": True,
         }
+
+        # Throttling each subtitle request keeps YouTube from rate-limiting.
+        # Clamped: the sleep runs once per requested track BEFORE media starts,
+        # so large values multiply into minutes of apparent hang.
+        subtitle_sleep = int(self.config.get("subtitle_sleep_interval", 0))
+        if subtitle_sleep > _MAX_SUBTITLE_SLEEP:
+            _logger.warning(
+                "subtitle_sleep_interval %ss exceeds the %ss cap; clamping.",
+                subtitle_sleep,
+                _MAX_SUBTITLE_SLEEP,
+            )
+            subtitle_sleep = _MAX_SUBTITLE_SLEEP
+        if subtitle_sleep > 0:
+            defaults["sleep_interval_subtitles"] = subtitle_sleep
+
         # Enable a non-default JS runtime (node/bun) when present so YouTube does
         # not silently drop formats; when only deno exists yt-dlp already uses it.
         js_runtimes = js_runtimes_option(self.config.get("node_path_override", ""))
@@ -462,24 +899,8 @@ class YouTubeProvider(Provider):
         return job.media_type == DownloadMediaType.VIDEO and job.subtitle_mode != SubtitleMode.NONE
 
     def _subtitle_languages(self, job: DownloadJob) -> list[str]:
-        """Exact subtitle codes to request from yt-dlp.
-
-        Only the supported languages (en/hi/te/ta) are ever requested; the
-        job builders resolve manual-vs-auto beforehand. Translated tracks are
-        excluded by never requesting them ("all" is not supported), and a
-        trailing "-.*" guards against wildcard expansion.
-        """
-        languages = [
-            lang.strip()
-            for lang in job.subtitle_languages
-            if lang.strip() and is_supported_language(lang)
-        ]
-        if not languages:
-            return []
-        # Always exclude translations
-        if "-.*" not in languages:
-            languages.append("-.*")
-        return languages
+        """Exact subtitle codes to request from yt-dlp."""
+        return [lang.strip() for lang in job.subtitle_languages if lang.strip()]
 
     def _writes_thumbnail(self, job: DownloadJob) -> bool:
         return job.thumbnail_mode in {
@@ -715,8 +1136,38 @@ class YouTubeProvider(Provider):
         progress_callback: ProgressCallback | None,
         progress: DownloadProgress,
     ) -> None:
+        self._log_stage_transition(progress)
         if progress_callback is not None:
             progress_callback(progress)
+
+    def _log_stage_transition(self, progress: DownloadProgress) -> None:
+        """Debug-log how long each stage took, keyed by job.
+
+        Produces a per-download timeline in mediaforge.log (extract 0.8s,
+        subtitles 3.2s, ...) that shows where time is actually spent.
+        """
+        if not _logger.isEnabledFor(logging.DEBUG):
+            return
+        from time import monotonic
+
+        previous = self._stage_started.get(progress.job_id)
+        now = monotonic()
+        if previous is not None and previous[0] != progress.stage:
+            _logger.debug(
+                "Job %s: stage %s took %.1fs, now %s",
+                progress.job_id,
+                previous[0].value,
+                now - previous[1],
+                progress.stage.value,
+            )
+        if previous is None or previous[0] != progress.stage:
+            self._stage_started[progress.job_id] = (progress.stage, now)
+        if progress.stage in (
+            DownloadStage.COMPLETED,
+            DownloadStage.FAILED,
+            DownloadStage.CANCELLED,
+        ):
+            self._stage_started.pop(progress.job_id, None)
 
     def _download_result(
         self,
@@ -725,13 +1176,20 @@ class YouTubeProvider(Provider):
         info: typing.Any,
         media_type: str,
         subtitle_failures: dict[str, str] | None = None,
+        extra_files: list[Path] | None = None,
     ) -> DownloadResult:
-        sidecar_files = self._sidecar_files(job)
-        files = (
-            sidecar_files
-            if media_type in {'subtitles', 'thumbnail'} and sidecar_files
-            else self._downloaded_files(info)
-        )
+        files = self._downloaded_files(info)
+        for path in extra_files or []:
+            if path not in files:
+                files.append(path)
+        # Artifact-only downloads must not report media files: with
+        # skip_download yt-dlp still computes the video filename, and if a
+        # previous run left that exact file in the folder it would be picked
+        # up as the "primary output" (wrong name/format/size in the summary).
+        if media_type == "thumbnail":
+            files = [f for f in files if f.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}]
+        elif media_type == "subtitles":
+            files = [f for f in files if f.suffix.lower() in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}]
         return DownloadResult(
             job_id=job.job_id,
             url=url,
@@ -745,22 +1203,6 @@ class YouTubeProvider(Provider):
             metadata=self._result_metadata(info),
             subtitles_failed=subtitle_failures or {},
         )
-
-    def _sidecar_files(self, job: DownloadJob) -> list[Path]:
-        template_name = Path(job.output_template).name
-        prefix = template_name.split('%(', 1)[0].rstrip('.')
-        patterns = [f'{prefix}*'] if prefix else ['*']
-        files: list[Path] = []
-        seen: set[Path] = set()
-        for pattern in patterns:
-            for path in job.output_dir.glob(pattern):
-                if not path.is_file():
-                    continue
-                resolved = path.resolve()
-                if resolved not in seen:
-                    seen.add(resolved)
-                    files.append(resolved)
-        return sorted(files, key=lambda item: item.name)
 
     def _cleanup_after_cancellation(self, job: DownloadJob) -> None:
         template_name = Path(job.output_template).name
@@ -970,6 +1412,32 @@ class YouTubeProvider(Provider):
         requested_downloads = info.get("requested_downloads")
         if isinstance(requested_downloads, list):
             for item in requested_downloads:
+                if not isinstance(item, dict):
+                    continue
+                candidates.extend(
+                    [
+                        item.get("filepath"),
+                        item.get("_filename"),
+                        item.get("filename"),
+                    ]
+                )
+        
+        thumbnails = info.get("thumbnails")
+        if isinstance(thumbnails, list):
+            for item in thumbnails:
+                if not isinstance(item, dict):
+                    continue
+                candidates.extend(
+                    [
+                        item.get("filepath"),
+                        item.get("_filename"),
+                        item.get("filename"),
+                    ]
+                )
+        
+        requested_subtitles = info.get("requested_subtitles")
+        if isinstance(requested_subtitles, dict):
+            for item in requested_subtitles.values():
                 if not isinstance(item, dict):
                     continue
                 candidates.extend(

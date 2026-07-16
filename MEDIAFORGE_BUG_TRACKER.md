@@ -8,9 +8,9 @@
 | Metadata | ✅ | Tagging and embedding works. |
 | Chapters | ✅ | Enabled by default. |
 | Thumbnail | ✅ | Writes and embeds correctly. |
-| Transcript | ❌ | Fails validation ("Unavailable"). |
-| Subtitle Only | ❌ | Validator mismatch. |
-| Thumbnail Only | ❌ | Validator mismatch. |
+| Transcript | ✅ | Fixed (Language code resolved). |
+| Subtitle Only | ✅ | Fixed (Enum mapped properly). |
+| Thumbnail Only | ✅ | Fixed (Enum mapped properly). |
 | Custom Video | ❌ | Crashing during format selection. |
 | Best Download | ❌ | Blocked by string/int bug. |
 
@@ -27,7 +27,7 @@
 ### BUG-002: Subtitle Validator Mismatch
 - **Title:** Subtitle downloads are validated incorrectly.
 - **Symptoms:** Subtitle flow uses the Transcript Validator instead of the Subtitle Validator.
-- **Status:** Open
+- **Status:** Fixed
 - **Root Cause:** Wrong validator instantiated in the factory or execution pipeline.
 - **Files:** `validator.py`, `executor.py`
 - **Priority:** High
@@ -35,7 +35,7 @@
 ### BUG-003: Thumbnail Validator Mismatch
 - **Title:** Thumbnail downloads are validated incorrectly.
 - **Symptoms:** Thumbnail flow uses the Transcript Validator.
-- **Status:** Open
+- **Status:** Fixed
 - **Root Cause:** Copy-paste error or mapping issue in execution pipeline.
 - **Files:** `validator.py`, `executor.py`
 - **Priority:** High
@@ -43,7 +43,7 @@
 ### BUG-004: Transcript Unavailable Error
 - **Title:** Transcripts fail to extract despite available subs.
 - **Symptoms:** Output shows "Unavailable" even when 157 auto-subtitles are detected by the Metadata Analyzer.
-- **Status:** Open
+- **Status:** Fixed
 - **Root Cause:** Unknown. Could be a missing argument (e.g. `--write-auto-subs`) or format conversion failure (`vtt`).
 - **Files:** `transcript.py`, yt-dlp arguments
 - **Priority:** Medium

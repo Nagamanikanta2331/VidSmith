@@ -13,6 +13,7 @@ class DownloadStage(str, Enum):
     QUEUED = "queued"
     EXTRACTING = "extract"
     SELECTING = "select"
+    RETRYING = "retrying"
     DOWNLOADING_VIDEO = "video"
     DOWNLOADING_AUDIO = "audio"
     DOWNLOADING_MEDIA = "download"
@@ -33,7 +34,10 @@ class DownloadStage(str, Enum):
 
 DOWNLOAD_STAGES: dict[str, str] = {
     "extract": "🔍 Fetching video information",
-    "select": "🎯 Selecting best format",
+    # Shown for everything yt-dlp does before media bytes flow (metadata,
+    # JS challenges, subtitle fetches, network retries) — keep it generic.
+    "select": "🌐 Contacting YouTube (preparing download)",
+    "retrying": "⚠ Retrying",
     "video": "⬇ Downloading video stream",
     "audio": "🎵 Downloading audio stream",
     "download": "⬇ Downloading media",

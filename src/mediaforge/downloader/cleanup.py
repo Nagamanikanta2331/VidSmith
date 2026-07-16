@@ -77,11 +77,16 @@ def cleanup_job_artifacts(
                             except OSError:
                                 pass
                         elif job.subtitle_mode in {SubtitleMode.AUTO, SubtitleMode.MANUAL, SubtitleMode.BOTH}:
-                            # Only delete if it actually got embedded
+                            # Only delete if it actually got embedded. ffprobe
+                            # reports three-letter codes (hin/tel/mal…) while
+                            # the filename carries the requested two-letter
+                            # code, so match via the shared language helper.
+                            from mediaforge.subtitle import language_matches
+
                             parts = item.suffixes
                             if len(parts) >= 2:
                                 lang = parts[-2].strip(".")
-                                if any(e.startswith(lang) for e in embedded_subs):
+                                if language_matches(lang, embedded_subs):
                                     try:
                                         item.unlink()
                                         deleted_files.append(item)

@@ -16,9 +16,16 @@ def _format_bytes(value: int | None) -> str:
         amount /= 1024
     return f"{amount:.1f} PB"
 
-def _media_duration(seconds: int | None) -> str:
-    if not seconds or seconds <= 0:
+def _media_duration(seconds: int | float | str | None) -> str:
+    if not seconds:
         return "Unknown"
+    try:
+        seconds = float(seconds)
+    except (ValueError, TypeError):
+        return "Unknown"
+    if seconds <= 0:
+        return "Unknown"
+    seconds = round(seconds)
     minutes, secs = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     if hours:
@@ -40,27 +47,7 @@ def render_summary(title: str, summary: SummaryModel) -> None:
     table.add_column(style="dim", no_wrap=True)
     table.add_column(style="white")
 
-    rows = [
-        ("Video Name", summary.title),
-        ("Channel", summary.channel),
-        ("File Name", summary.file_name),
-        ("Output Folder", summary.output_folder),
-        ("Container", summary.container),
-        ("Video Quality", summary.video_quality),
-        ("Resolution", summary.resolution),
-        ("FPS", summary.fps),
-        ("HDR", summary.hdr),
-        ("Video Codec", summary.video_codec),
-        ("Video Bitrate", summary.video_bitrate),
-        ("Audio Codec", summary.audio_codec),
-        ("Audio Bitrate", summary.audio_bitrate),
-        ("Audio Language", summary.audio_language),
-        ("File Size", _format_bytes(summary.file_size_bytes) if summary.file_size_bytes else ""),
-        ("Duration", _media_duration(summary.duration_seconds)),
-        ("Download Time", _elapsed_label(summary.download_seconds)),
-    ]
-
-    for label, value in rows:
+    for label, value in summary.rows:
         if value and str(value) != "Unknown":
             table.add_row(label, str(value))
 

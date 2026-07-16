@@ -73,8 +73,22 @@ subtitles, chapters, metadata, and cover art embedded automatically.
 pip install mediaforge
 ```
 
-Requirements: **Python 3.12+**. FFmpeg is auto-detected on `PATH`, with a
-bundled fallback via `imageio-ffmpeg`.
+### Prerequisites
+- **Python 3.12+**
+- **yt-dlp**: Installed automatically for you when you run the `pip install` command above. No manual installation is required!
+
+### Recommended System Tools
+While MediaForge comes with fallbacks, installing these system tools ensures maximum performance and compatibility:
+
+**1. FFmpeg (for media conversion and muxing)**
+If not found, MediaForge uses a bundled fallback (`imageio-ffmpeg`), but a native installation is faster and more robust.
+- **Windows:** `winget install ffmpeg` (or download from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/))
+- **macOS:** `brew install ffmpeg`
+- **Linux:** `sudo apt install ffmpeg` (Ubuntu/Debian)
+
+**2. Node.js or Deno (for complex YouTube extractions)**
+YouTube occasionally requires executing JavaScript to extract certain video formats.
+- **Windows/macOS/Linux:** Download from [Node.js](https://nodejs.org/) or install Deno via `iwr https://deno.land/install.ps1 -useb | iex` (Windows) / `curl -fsSL https://deno.land/install.sh | sh` (macOS/Linux).
 
 From source:
 

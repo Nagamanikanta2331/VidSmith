@@ -42,13 +42,21 @@ _CONTAINER_CHOICES = [
     Choice("WebM", "webm", "Open format"),
 ]
 
+_SUBTITLE_DELAY_CHOICES = [
+    Choice("Off (0s)", "0"),
+    Choice("5 seconds", "5"),
+    Choice("10 seconds", "10"),
+    Choice("15 seconds", "15"),
+    Choice("Custom", "custom"),
+]
+
 _SUMMARY = [
     ("default_output_directory", "Default Save Location"),
     ("default_container", "Default Container"),
     ("default_quality", "Default Video Quality"),
     ("default_audio_format", "Default Audio Format"),
     ("default_audio_quality", "Default Audio Bitrate"),
-    ("subtitle_delay_seconds", "Subtitle Delay"),
+    ("subtitle_delay_mode", "Subtitle Delay"),
     ("cleanup_enabled", "Cleanup Temp Files"),
     ("keep_temp_files", "Keep Temp Files"),
     ("node_path_override", "Node.js Path"),
@@ -110,15 +118,26 @@ def build_settings_wizard() -> Wizard:
                 choices=_AUDIO_QUALITY_CHOICES,
                 default_index=_index_of(_AUDIO_QUALITY_CHOICES, s.default_audio_quality, 2),
             ),
-            NumericStep(
-                key="subtitle_delay_seconds",
+            ChoiceStep(
+                key="subtitle_delay_mode",
                 title="Subtitle Delay",
+                choices=_SUBTITLE_DELAY_CHOICES,
+                default_index=_index_of(_SUBTITLE_DELAY_CHOICES, str(s.subtitle_delay_seconds), _index_of(_SUBTITLE_DELAY_CHOICES, "custom")),
+            ),
+            NumericStep(
+                key="subtitle_delay_custom",
+                title="Custom Subtitle Delay",
                 prompt_label="Seconds between subtitle requests",
                 min_value=0,
-                max_value=600,
-                default=s.subtitle_delay_seconds,
+                max_value=15,
+                default=min(s.subtitle_delay_seconds, 15),
                 unit="s",
-                description="Throttle to avoid YouTube rate-limiting (429). Default 125.",
+                description=(
+                    "Throttle to avoid YouTube rate-limiting (429). Applied "
+                    "before EACH subtitle track, so total wait ≈ delay × tracks "
+                    "(up to 4). Max 15s."
+                ),
+                skip_when=lambda state: state.get("subtitle_delay_mode") != "custom",
             ),
             ToggleStep(
                 key="cleanup_enabled",

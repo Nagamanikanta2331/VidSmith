@@ -16,6 +16,8 @@ class DummyResult:
     def __init__(self, url="https://youtube.com/watch?v=123", title="Test Title"):
         self.url = url
         self.title = title
+        self.subtitle_languages = ["en"]
+        self.automatic_subtitle_languages = []
 
 @pytest.fixture
 def state():

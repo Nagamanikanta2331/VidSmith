@@ -78,6 +78,49 @@ def can_embed_cover_atoms() -> bool:
     return has_mutagen() or has_atomicparsley()
 
 
+@lru_cache(maxsize=1)
+def environment_summary() -> str:
+    """One-line tool-version summary for the debug log.
+
+    When a user reports "downloads stopped working", the first question is
+    whether yt-dlp (or ffmpeg/Python) changed — this records the answer next
+    to the failure instead of requiring a follow-up round-trip.
+    """
+    import platform
+    import subprocess
+    import sys
+
+    def _pkg_version(name: str) -> str:
+        try:
+            from importlib.metadata import version
+
+            return version(name)
+        except Exception:
+            return "not installed"
+
+    def _binary_version(binary: str, args: tuple[str, ...] = ("--version",)) -> str:
+        path = which(binary)
+        if not path:
+            return "not found"
+        try:
+            out = subprocess.run(
+                [path, *args], capture_output=True, text=True, timeout=5
+            ).stdout.strip()
+            return out.splitlines()[0] if out else "unknown"
+        except Exception:
+            return "unknown"
+
+    runtime = available_js_runtime() or "none"
+    return (
+        f"python={sys.version.split()[0]} ({platform.platform()}) "
+        f"yt-dlp={_pkg_version('yt-dlp')} "
+        f"ffmpeg={_binary_version('ffmpeg', ('-version',))!r} "
+        f"js_runtime={runtime} ({_binary_version(runtime) if runtime != 'none' else 'n/a'!r}) "
+        f"curl_cffi={_pkg_version('curl_cffi')} "
+        f"mutagen={_pkg_version('mutagen')}"
+    )
+
+
 def environment_warnings() -> list[str]:
     """Human-readable, actionable warnings for missing optional tooling.
 
