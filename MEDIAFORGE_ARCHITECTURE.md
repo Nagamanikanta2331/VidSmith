@@ -1,4 +1,4 @@
-# MediaForge Architecture Reference
+# VidSmith Architecture Reference
 
 ## 1. System Architecture Diagram
 

@@ -1,4 +1,4 @@
-# MediaForge Master Context
+# VidSmith Master Context
 
 ## CURRENT PRIORITIES
 - **P0:** Fix `<=` TypeError in format filtering.

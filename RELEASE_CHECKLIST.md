@@ -4,7 +4,7 @@ Status for the first public release target: `v1.0.0`.
 
 ## Environment
 
-- [x] `mediaforge doctor --no-network` reports required tools: Python, yt-dlp, FFmpeg.
+- [x] `vidsmith doctor --no-network` reports required tools: Python, yt-dlp, FFmpeg.
 - [x] Optional tools verified or consciously waived: curl_cffi and mutagen installed;
       AtomicParsley and Deno reported as optional recommendations.
 
@@ -20,21 +20,21 @@ Status for the first public release target: `v1.0.0`.
 - [x] **Metadata** - metadata embedding remains enabled for recommended mode.
 - [x] **Chapters** - chapter embedding remains enabled via FFmpeg metadata postprocessor.
 - [x] **Progress UI** - existing percent, bytes, speed, ETA, and stage UI preserved.
-- [x] **Doctor command** - `mediaforge doctor --no-network` exits cleanly.
+- [x] **Doctor command** - `vidsmith doctor --no-network` exits cleanly.
 
 ## Packaging
 
 - [x] `python -m build` succeeds: sdist and wheel created.
 - [x] `python -m twine check dist\*` passes.
-- [x] Wheel installs into a clean venv; installed `mediaforge --version` works.
-- [x] Installed `mediaforge doctor --no-network` works from the clean venv.
-- [x] `pyproject.toml` version matches `mediaforge.config.APP_VERSION` (`1.0.0`).
+- [x] Wheel installs into a clean venv; installed `vidsmith --version` works.
+- [x] Installed `vidsmith doctor --no-network` works from the clean venv.
+- [x] `pyproject.toml` version matches `vidsmith.config.APP_VERSION` (`1.0.0`).
 
 ## Quality
 
 - [x] `python -m ruff check .` passes.
 - [x] `python -m black --check .` passes.
-- [x] `python -m mypy src\mediaforge` passes.
+- [x] `python -m mypy src\vidsmith` passes.
 - [x] `python -m pytest` passes.
 - [x] Pre-commit configuration is present.
 
@@ -51,4 +51,4 @@ Status for the first public release target: `v1.0.0`.
 - [x] Release workflow builds artifacts, smoke-tests installs, publishes to PyPI, and creates a GitHub release.
 - [x] Tag convention documented: `v1.0.0` must match package version `1.0.0`.
 - [x] PyPI trusted-publishing step included in release workflow.
-- [x] Post-release verification command documented: `pip install mediaforge`.
+- [x] Post-release verification command documented: `pip install vidsmith`.

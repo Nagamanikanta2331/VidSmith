@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mediaforge.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode  # type: ignore
-from mediaforge.downloader.validator import validate_download
-from mediaforge.providers.results import DownloadResultStatus
-from mediaforge.providers.youtube import DownloadResult
+from vidsmith.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode  # type: ignore
+from vidsmith.downloader.validator import validate_download
+from vidsmith.providers.results import DownloadResultStatus
+from vidsmith.providers.youtube import DownloadResult
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def test_validator_sidecar_detection(temp_dir: Path) -> None:
         files=[media_file, en_sub, hi_sub],
     )
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
         val = validate_download(job, result)
@@ -74,7 +74,7 @@ def test_validator_embedded_detection(temp_dir: Path) -> None:
         files=[media_file],
     )
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": [{"codec_type": "subtitle", "tags": {"language": "en"}}, {"codec_type": "subtitle", "tags": {"language": "hi"}}]}'
         mock_run.return_value.returncode = 0
         val = validate_download(job, result)
@@ -108,7 +108,7 @@ def test_validator_missing_subtitle_detection(temp_dir: Path) -> None:
         files=[media_file, en_sub],
     )
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
         val = validate_download(job, result)
@@ -138,7 +138,7 @@ def test_validator_subtitle_only_success(temp_dir: Path) -> None:
         files=[en_sub],
     )
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
         val = validate_download(job, result)
@@ -164,7 +164,7 @@ def test_validator_subtitle_only_failure_when_zero_files(temp_dir: Path) -> None
         files=[],
     )
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
         val = validate_download(job, result)
@@ -173,7 +173,7 @@ def test_validator_subtitle_only_failure_when_zero_files(temp_dir: Path) -> None
         assert val.error_code == "FILE_MISSING"
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_mp3_artwork(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.mp3"
@@ -202,7 +202,7 @@ def test_validate_audio_mp3_artwork(mock_run, tmp_path):
     assert val.audio.title_present is True  # type: ignore
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_mp3_artwork_missing(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.mp3"
@@ -225,7 +225,7 @@ def test_validate_audio_mp3_artwork_missing(mock_run, tmp_path):
     assert val.audio.metadata_present is False  # type: ignore
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_m4a_artwork(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.m4a"
@@ -252,7 +252,7 @@ def test_validate_audio_m4a_artwork(mock_run, tmp_path):
     assert val.audio.artwork_status == "Embedded"  # type: ignore
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_unsupported_artwork(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.aac"
@@ -272,7 +272,7 @@ def test_validate_audio_unsupported_artwork(mock_run, tmp_path):
     assert val.audio.artwork_status == "Unsupported"  # type: ignore
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_metadata_complete(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.mp3"
@@ -305,7 +305,7 @@ def test_validate_audio_metadata_complete(mock_run, tmp_path):
     assert val.audio.date_present is True  # type: ignore
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_metadata_partially_missing(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.mp3"
@@ -330,7 +330,7 @@ def test_validate_audio_metadata_partially_missing(mock_run, tmp_path):
     assert val.audio.album_present is False  # type: ignore
 
 
-@patch("mediaforge.downloader.validators.context.subprocess.run")
+@patch("vidsmith.downloader.validators.context.subprocess.run")
 def test_validate_audio_validation_failures(mock_run, tmp_path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.AUDIO, output_dir=tmp_path)
     primary = tmp_path / "song.mp3"

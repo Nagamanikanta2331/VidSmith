@@ -1,4 +1,4 @@
-# MediaForge Future Roadmap
+# VidSmith Future Roadmap
 
 ## Phase C: Stabilization & Bug Fixes (Completed)
 - [x] Triage and resolve all Open bugs in `MEDIAFORGE_BUG_TRACKER.md`.

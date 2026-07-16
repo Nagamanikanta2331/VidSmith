@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from mediaforge.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode
-from mediaforge.providers.youtube import YouTubeProvider
-from mediaforge.subtitle import resolve_subtitle_selection
+from vidsmith.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode
+from vidsmith.providers.youtube import YouTubeProvider
+from vidsmith.subtitle import resolve_subtitle_selection
 
 
 @pytest.mark.parametrize(

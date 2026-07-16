@@ -5,14 +5,14 @@ from unittest import mock
 
 import pytest
 
-import mediaforge.settings.store as store
-from mediaforge.cli.wizard.steps import Choice
-from mediaforge.settings import AppSettings
+import vidsmith.settings.store as store
+from vidsmith.cli.wizard.steps import Choice
+from vidsmith.settings import AppSettings
 
 
 @pytest.fixture
 def mock_settings_dir(tmp_path: Path):
-    with mock.patch("mediaforge.settings.store.settings_dir", return_value=tmp_path):
+    with mock.patch("vidsmith.settings.store.settings_dir", return_value=tmp_path):
         yield tmp_path
 
 
@@ -36,7 +36,7 @@ def _step_by_key(wizard, key: str):
 
 
 def test_video_wizard_seeds_from_settings(saved: AppSettings):
-    from mediaforge.cli.wizard.wizards.video import build_video_wizard
+    from vidsmith.cli.wizard.wizards.video import build_video_wizard
 
     wizard = build_video_wizard()
     assert _step_by_key(wizard, "output_dir")._default == "D:/Media"
@@ -55,14 +55,14 @@ def test_video_wizard_seeds_from_settings(saved: AppSettings):
 
 
 def test_video_wizard_quality_falls_back_to_best(saved: AppSettings):
-    from mediaforge.cli.wizard.wizards.video import _default_quality_index
+    from vidsmith.cli.wizard.wizards.video import _default_quality_index
 
     # Saved quality (720) not offered by this source → Best Available.
     assert _default_quality_index([Choice("Best Available", "best")]) == 0
 
 
 def test_audio_wizard_seeds_from_settings(saved: AppSettings):
-    from mediaforge.cli.wizard.wizards.audio import _FORMAT_CHOICES, build_audio_wizard
+    from vidsmith.cli.wizard.wizards.audio import _FORMAT_CHOICES, build_audio_wizard
 
     wizard = build_audio_wizard()
     assert _step_by_key(wizard, "output_dir")._default == "D:/Media"
@@ -73,7 +73,7 @@ def test_audio_wizard_seeds_from_settings(saved: AppSettings):
 
 
 def test_playlist_wizard_seeds_from_settings(saved: AppSettings):
-    from mediaforge.cli.wizard.wizards.playlist import (
+    from vidsmith.cli.wizard.wizards.playlist import (
         _QUALITY_CHOICES,
         build_playlist_wizard,
     )
@@ -90,21 +90,21 @@ def test_playlist_wizard_seeds_from_settings(saved: AppSettings):
 def test_playlist_concurrency_clamped_to_step_max(mock_settings_dir: Path):
     s = AppSettings(max_concurrency=8)  # settings allow up to 8; step caps at 5
     with mock.patch.object(store, "_current", s):
-        from mediaforge.cli.wizard.wizards.playlist import build_playlist_wizard
+        from vidsmith.cli.wizard.wizards.playlist import build_playlist_wizard
 
         wizard = build_playlist_wizard()
         assert _step_by_key(wizard, "concurrency")._default == 5
 
 
 def test_transcript_wizard_seeds_output_dir(saved: AppSettings):
-    from mediaforge.cli.wizard.wizards.transcript import build_transcript_wizard
+    from vidsmith.cli.wizard.wizards.transcript import build_transcript_wizard
 
     wizard = build_transcript_wizard()
     assert _step_by_key(wizard, "output_dir")._default == "D:/Media"
 
 
 def test_settings_wizard_seeds_from_saved_values(saved: AppSettings):
-    from mediaforge.cli.wizard.wizards.settings import (
+    from vidsmith.cli.wizard.wizards.settings import (
         _CONTAINER_CHOICES,
         build_settings_wizard,
     )
@@ -117,8 +117,8 @@ def test_settings_wizard_seeds_from_saved_values(saved: AppSettings):
 
 def test_choice_step_callable_default_out_of_range_is_safe():
     """A callable default returning an out-of-range index falls back to 0."""
-    from mediaforge.cli.wizard.base import WizardState
-    from mediaforge.cli.wizard.steps.choice import ChoiceStep
+    from vidsmith.cli.wizard.base import WizardState
+    from vidsmith.cli.wizard.steps.choice import ChoiceStep
 
     step = ChoiceStep(
         key="x",

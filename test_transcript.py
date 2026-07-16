@@ -1,7 +1,7 @@
 import logging
 
-from mediaforge.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode
-from mediaforge.providers.youtube import YouTubeProvider
+from vidsmith.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode
+from vidsmith.providers.youtube import YouTubeProvider
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -11,7 +11,7 @@ def main():
     job = DownloadJob(
         url="https://www.youtube.com/watch?v=BaW_CjWt5nc",  # Some video that has subtitles (like YouTube rewind or similar)
         media_type=DownloadMediaType.TRANSCRIPT,
-        output_dir="C:\\MediaForge\\test_outputs",  # type: ignore
+        output_dir="C:\\VidSmith\\test_outputs",  # type: ignore
         subtitle_mode=SubtitleMode.BOTH,
         subtitle_languages=["en", "en-US", "-.*"],
     )

@@ -1,6 +1,6 @@
 # AI Implementation Rules
 
-This document outlines the **immutable engineering principles** for the MediaForge project. These rules must be strictly followed by any AI or developer modifying the codebase. They ensure that the project's architecture, reliability, and code quality remain intact as new features and bug fixes are introduced.
+This document outlines the **immutable engineering principles** for the VidSmith project. These rules must be strictly followed by any AI or developer modifying the codebase. They ensure that the project's architecture, reliability, and code quality remain intact as new features and bug fixes are introduced.
 
 ---
 
@@ -8,7 +8,7 @@ This document outlines the **immutable engineering principles** for the MediaFor
 
 Every download mode MUST generate a yt-dlp command that is functionally equivalent to the manually verified reference command.
 
-- MediaForge must NEVER invent new yt-dlp behaviour.
+- VidSmith must NEVER invent new yt-dlp behaviour.
 - If a feature already exists in yt-dlp, use it instead of recreating it in Python.
 - The Python provider is responsible only for dynamically constructing the command from the `DownloadJob`.
 

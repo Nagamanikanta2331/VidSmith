@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mediaforge.providers.youtube import (
+from vidsmith.providers.youtube import (
     YouTubeProvider,
     _classify_subtitle_reason,
     _SubtitleLogger,
@@ -72,7 +72,7 @@ class TestThumbnailFormatOptions:
     def _thumbnail_job(self, thumbnail_format: str = ""):
         from pathlib import Path
 
-        from mediaforge.downloader.job import DownloadJob, DownloadMediaType, ThumbnailMode
+        from vidsmith.downloader.job import DownloadJob, DownloadMediaType, ThumbnailMode
 
         return DownloadJob(
             url="https://youtube.com/watch?v=123",

@@ -3,14 +3,14 @@ from unittest.mock import patch
 
 import pytest
 
-from mediaforge.downloader.job import (
+from vidsmith.downloader.job import (
     DownloadJob,
     DownloadMediaType,
     SubtitleMode,
     ThumbnailMode,
 )
-from mediaforge.downloader.validator import validate_download
-from mediaforge.providers.results import DownloadResult, DownloadResultStatus
+from vidsmith.downloader.validator import validate_download
+from vidsmith.providers.results import DownloadResult, DownloadResultStatus
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def test_video_job_routing(dummy_result):
         media_type=DownloadMediaType.VIDEO,
         output_dir=dummy_result.output_dir,
     )
-    with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
 
@@ -50,7 +50,7 @@ def test_transcript_job_routing(dummy_result):
         subtitle_mode=SubtitleMode.BOTH,
     )
 
-    with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
 
@@ -68,7 +68,7 @@ def test_subtitle_job_routing(dummy_result):
         subtitle_mode=SubtitleMode.BOTH,
     )
 
-    with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
 
@@ -86,7 +86,7 @@ def test_thumbnail_job_routing(dummy_result):
         thumbnail_mode=ThumbnailMode.SAVE,
     )
 
-    with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = '{"streams": []}'
         mock_run.return_value.returncode = 0
 

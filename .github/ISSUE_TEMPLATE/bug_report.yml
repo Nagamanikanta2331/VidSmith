@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a reproducible problem with MediaForge
+description: Report a reproducible problem with VidSmith
 title: "[Bug]: "
 labels: ["bug", "triage"]
 body:
@@ -7,28 +7,28 @@ body:
     attributes:
       value: |
         Thanks for taking the time to file a bug report! Please run
-        `mediaforge doctor` first — most issues are environment-related.
+        `vidsmith doctor` first — most issues are environment-related.
   - type: checkboxes
     id: preflight
     attributes:
       label: Preflight checklist
       options:
-        - label: I ran `mediaforge doctor` and reviewed the output.
+        - label: I ran `vidsmith doctor` and reviewed the output.
           required: true
         - label: I searched existing issues and did not find a duplicate.
           required: true
   - type: input
     id: version
     attributes:
-      label: MediaForge version
-      description: Output of `mediaforge --version`
-      placeholder: MediaForge 1.0.0
+      label: VidSmith version
+      description: Output of `vidsmith --version`
+      placeholder: VidSmith 1.0.0
     validations:
       required: true
   - type: textarea
     id: doctor
     attributes:
-      label: "`mediaforge doctor` output"
+      label: "`vidsmith doctor` output"
       render: text
     validations:
       required: true

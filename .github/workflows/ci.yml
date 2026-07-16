@@ -27,7 +27,7 @@ jobs:
       - name: Black (format)
         run: black --check .
       - name: MyPy (types)
-        run: mypy src/mediaforge
+        run: mypy src/vidsmith
 
   test:
     name: Tests · ${{ matrix.os }} · py${{ matrix.python }}
@@ -50,8 +50,8 @@ jobs:
       - name: Smoke test CLI entry points
         shell: bash
         run: |
-          mediaforge --version
-          mediaforge doctor --no-network
+          vidsmith --version
+          vidsmith doctor --no-network
 
   build:
     name: Build · Validate package
@@ -73,8 +73,8 @@ jobs:
         run: |
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install dist/*.whl
-          /tmp/clean/bin/mediaforge --version
-          /tmp/clean/bin/mediaforge doctor --no-network
+          /tmp/clean/bin/vidsmith --version
+          /tmp/clean/bin/vidsmith doctor --no-network
       - uses: actions/upload-artifact@v4
         with:
           name: dist

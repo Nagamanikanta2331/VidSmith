@@ -4,15 +4,15 @@ from unittest import mock
 
 import pytest
 
-from mediaforge.downloader.job import (  # type: ignore
+from vidsmith.downloader.job import (  # type: ignore
     DownloadJob,
     DownloadMediaType,
     MetadataMode,
     ThumbnailMode,
 )
-from mediaforge.downloader.validator import validate_download
-from mediaforge.downloader.validators import ValidationErrorCode
-from mediaforge.providers.results import DownloadResult, DownloadResultStatus
+from vidsmith.downloader.validator import validate_download
+from vidsmith.downloader.validators import ValidationErrorCode
+from vidsmith.providers.results import DownloadResult, DownloadResultStatus
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def test_integration_mp4_h264_with_thumbnail_and_metadata(temp_output: Path) -> 
         ],
     }
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.return_value.stdout = json.dumps(mock_ffprobe_data)
         mock_run.return_value.returncode = 0
 
@@ -79,7 +79,7 @@ def test_integration_zero_byte_file(temp_output: Path) -> None:
     job = _create_mock_job(DownloadMediaType.VIDEO, temp_output)
     result = _create_mock_result(temp_output, [media_file])
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         validation = validate_download(job, result)
         assert mock_run.call_count == 0  # Should fail file check before ffprobe
 
@@ -93,7 +93,7 @@ def test_integration_missing_file(temp_output: Path) -> None:
     job = _create_mock_job(DownloadMediaType.VIDEO, temp_output)
     result = _create_mock_result(temp_output, [media_file])
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         validation = validate_download(job, result)
         assert mock_run.call_count == 0
 
@@ -113,7 +113,7 @@ def test_integration_ffprobe_failure(temp_output: Path) -> None:
     )
     result = _create_mock_result(temp_output, [media_file])
 
-    with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
+    with mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run:
         mock_run.side_effect = Exception("ffprobe crashed")
         validation = validate_download(job, result)
         assert mock_run.call_count == 1
@@ -133,7 +133,7 @@ def test_integration_mp3_with_artwork(temp_output: Path) -> None:
 
     # MP3 artwork is checked with mutagen first
     with (
-        mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run,
+        mock.patch("vidsmith.downloader.validators.context.subprocess.run") as mock_run,
         mock.patch("mutagen.mp3.MP3") as mock_mp3,
     ):
         mock_mp3.return_value.tags = {"APIC:cover": "data"}

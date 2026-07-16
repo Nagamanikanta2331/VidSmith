@@ -1,4 +1,4 @@
-# MediaForge Bug Tracker
+# VidSmith Bug Tracker
 
 ## 1. Current Implementation Status
 
@@ -55,3 +55,11 @@
 - **Root Cause:** Solved by utilizing `mutagen` for proper atomic placement in M4A/MP4 formats.
 - **Files:** yt-dlp arguments, post-processors
 - **Priority:** Low
+
+### BUG-006: UnicodeDecodeError in Subprocess Reader Thread (Windows)
+- **Title:** Intermittent `UnicodeDecodeError: 'charmap' codec can't decode byte …` after downloads.
+- **Symptoms:** A traceback from `threading` / `subprocess._readerthread` printed mid-UI when downloading videos whose metadata contains non-ASCII characters (Hindi titles, fullwidth `｜`, emoji). Download itself completed fine.
+- **Status:** Fixed
+- **Root Cause:** `subprocess.run(..., text=True)` without an explicit `encoding` decodes child output using the Windows ANSI codepage (cp1252), while ffprobe/ffmpeg emit UTF-8. Bytes like `0x8d` have no cp1252 mapping and crash the reader thread.
+- **Fix:** Added `encoding="utf-8", errors="replace"` to every captured-output subprocess call (`validators/context.py`, `providers/youtube.py`, `processing/ffmpeg.py`, `utils/environment.py`).
+- **Priority:** Medium

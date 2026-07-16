@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from mediaforge.downloader.cleanup import cleanup_job_artifacts
-from mediaforge.downloader.job import DownloadJob, DownloadMediaType
-from mediaforge.downloader.validator import DownloadValidationResult
+from vidsmith.downloader.cleanup import cleanup_job_artifacts
+from vidsmith.downloader.job import DownloadJob, DownloadMediaType
+from vidsmith.downloader.validator import DownloadValidationResult
 
 
 @pytest.fixture

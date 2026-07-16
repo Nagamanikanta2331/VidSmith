@@ -1,6 +1,6 @@
-from mediaforge.cli.executor import execute_subtitles
-from mediaforge.cli.wizard.base import WizardState
-from mediaforge.models.media import AnalysisResult, MediaType
+from vidsmith.cli.executor import execute_subtitles
+from vidsmith.cli.wizard.base import WizardState
+from vidsmith.models.media import AnalysisResult, MediaType
 
 state = WizardState()
 state.set("output_dir", ".")

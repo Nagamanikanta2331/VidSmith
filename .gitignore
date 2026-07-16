@@ -21,6 +21,8 @@ wheels/
 venv/
 env/
 ENV/
+.env
+.env.*
 
 # Test / coverage / caches
 .pytest_cache/
@@ -40,11 +42,14 @@ coverage.xml
 *.swo
 *~
 
+# AI assistant local state
+.claude/
+
 # OS noise
 .DS_Store
 Thumbs.db
 
-# MediaForge output artifacts (downloaded media should never be committed)
+# VidSmith output artifacts (downloaded media should never be committed)
 *.mp4
 *.mkv
 *.webm
@@ -57,11 +62,15 @@ Thumbs.db
 *.srt
 *.webp
 *.part
+*.ytdl
 *.jpg
 *.jpeg
+*.png
+
+# VidSmith logs (vidsmith.log and rotations)
+*.log
 
 # Local debug / scratch dumps (never committed)
-*.log
 out2/
 rick.json
 test_dump.json

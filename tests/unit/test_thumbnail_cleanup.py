@@ -2,13 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from mediaforge.downloader.cleanup import cleanup_job_artifacts
-from mediaforge.downloader.job import (
+from vidsmith.downloader.cleanup import cleanup_job_artifacts
+from vidsmith.downloader.job import (
     DownloadJob,
     DownloadMediaType,
     ThumbnailMode,
 )
-from mediaforge.downloader.validators.models import (
+from vidsmith.downloader.validators.models import (
     DownloadValidationResult,
     ThumbnailValidationResult,
 )

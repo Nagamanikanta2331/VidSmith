@@ -20,7 +20,7 @@
 - [ ] I read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] `ruff check .` passes.
 - [ ] `black --check .` passes.
-- [ ] `mypy src/mediaforge` passes.
+- [ ] `mypy src/vidsmith` passes.
 - [ ] `pytest` passes.
 - [ ] I updated `CHANGELOG.md` under `[Unreleased]`.
 - [ ] I did not alter the download engine, or I included a bug reproduction that

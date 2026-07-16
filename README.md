@@ -1,11 +1,11 @@
-# MediaForge
+# VidSmith
 
-> **🤖 Built by AI**
-> This entire project (including all source code, tests, UI, and documentation) was autonomously generated and engineered by an AI coding assistant in collaboration with the repository owner.
+> **🤖 Built by AI — Idea by the Owner**
+> This entire project — all source code, tests, UI, and documentation — was developed by an AI coding assistant (Claude). The original idea, product direction, and ownership belong to the repository owner, [Naga Manikanta Nandyala](https://github.com/Nagamanikanta2331).
 
 **A production-grade, zero-config YouTube media downloader for your terminal.**
 
-MediaForge wraps the full power of [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+VidSmith wraps the full power of [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 in a polished interactive CLI: paste a URL, press **1**, and get the best
 possible file — same stream selection as the official yt-dlp CLI, with
 subtitles, chapters, metadata, and cover art embedded automatically.
@@ -19,8 +19,8 @@ subtitles, chapters, metadata, and cover art embedded automatically.
                                           |___/
 ```
 
-[![CI](https://github.com/your-username/MediaForge/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/MediaForge/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/mediaforge)](https://pypi.org/project/mediaforge/)
+[![CI](https://github.com/Nagamanikanta2331/VidSmith/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagamanikanta2331/VidSmith/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/vidsmith)](https://pypi.org/project/vidsmith/)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -41,7 +41,7 @@ subtitles, chapters, metadata, and cover art embedded automatically.
   supports instead of failing silently.
 - 📊 **Rich progress + summary** — live speed/ETA, then a full report:
   resolution, FPS, HDR, codecs, bitrates, file size, subtitle outcome.
-- 🩺 **`mediaforge doctor`** — one command to diagnose your environment.
+- 🩺 **`vidsmith doctor`** — one command to diagnose your environment.
 - ⏯️ **Resume support** — interrupted downloads continue from `.part` files.
 
 ### Screenshot
@@ -72,13 +72,13 @@ subtitles, chapters, metadata, and cover art embedded automatically.
 
 ## Installation
 
-> **Note**: This package is not yet published to PyPI under the `mediaforge` name due to a naming collision. Please install from source.
+> **Note**: This package is not yet published to PyPI under the `vidsmith` name due to a naming collision. Please install from source.
 
 From source:
 
 ```bash
-git clone https://github.com/your-username/MediaForge.git
-cd MediaForge
+git clone https://github.com/Nagamanikanta2331/VidSmith.git
+cd VidSmith
 pip install -e .
 ```
 
@@ -87,10 +87,10 @@ pip install -e .
 - **yt-dlp**: Installed automatically for you when you run the installation command above. No manual installation is required!
 
 ### Recommended System Tools
-While MediaForge comes with fallbacks, installing these system tools ensures maximum performance and compatibility:
+While VidSmith comes with fallbacks, installing these system tools ensures maximum performance and compatibility:
 
 **1. FFmpeg (for media conversion and muxing)**
-If not found, MediaForge uses a bundled fallback (`imageio-ffmpeg`), but a native installation is faster and more robust.
+If not found, VidSmith uses a bundled fallback (`imageio-ffmpeg`), but a native installation is faster and more robust.
 - **Windows:** `winget install ffmpeg` (or download from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/))
 - **macOS:** `brew install ffmpeg`
 - **Linux:** `sudo apt install ffmpeg` (Ubuntu/Debian)
@@ -102,7 +102,7 @@ YouTube occasionally requires executing JavaScript to extract certain video form
 Verify your environment:
 
 ```bash
-mediaforge doctor
+vidsmith doctor
 ```
 
 ---
@@ -110,11 +110,11 @@ mediaforge doctor
 ## Quick Start
 
 ```bash
-mediaforge
+vidsmith
 ```
 
 1. Paste a YouTube URL (video, Shorts, or playlist) and press **Enter**.
-2. MediaForge analyses it and shows a menu — option **1** is always
+2. VidSmith analyses it and shows a menu — option **1** is always
    **⭐ Best Download**.
 3. Press **1** + Enter. Done.
 
@@ -127,10 +127,10 @@ you got.
 
 | Command | Purpose |
 |---------|---------|
-| `mediaforge` | Launch the interactive app |
-| `mediaforge doctor` | Diagnose environment (tools, network, YouTube access) |
-| `mediaforge doctor --no-network` | Same, skipping connectivity checks |
-| `mediaforge --version` | Print the version |
+| `vidsmith` | Launch the interactive app |
+| `vidsmith doctor` | Diagnose environment (tools, network, YouTube access) |
+| `vidsmith doctor --no-network` | Same, skipping connectivity checks |
+| `vidsmith --version` | Print the version |
 
 ---
 
@@ -176,7 +176,7 @@ downloading media.
 
 ## Configuration
 
-MediaForge is deliberately zero-config for the common case. Power users can
+VidSmith is deliberately zero-config for the common case. Power users can
 tune the provider via the `YouTubeProvider(config=...)` API:
 
 | Key | Default | Purpose |
@@ -210,13 +210,13 @@ Optional (auto-detected, recommended):
 
 ## Troubleshooting
 
-**Run `mediaforge doctor` first.** It diagnoses nearly every common problem.
+**Run `vidsmith doctor` first.** It diagnoses nearly every common problem.
 
 | Symptom | Cause & fix |
 |---------|-------------|
 | "Impersonation … not available" | `pip install curl_cffi` |
 | Thumbnail invisible in Windows Explorer (MP4/M4A) | `pip install mutagen` — or use MKV. Windows Explorer ignores ffmpeg's `attached_pic`; VLC/MediaInfo show it. |
-| HTTP 429 on subtitles | YouTube rate limiting. MediaForge throttles and continues; failed languages are listed in the summary. Retry later for missing ones. |
+| HTTP 429 on subtitles | YouTube rate limiting. VidSmith throttles and continues; failed languages are listed in the summary. Retry later for missing ones. |
 | "Some formats may be missing" | Install [Deno](https://deno.com) (or Node.js). |
 | Download smaller than other tools | Modern codecs such as VP9 give the same quality in half the size of H.264. Compare resolution/codec, not bytes. |
 | Interrupted download | Rerun the same download — it resumes from `.part`. |
@@ -246,9 +246,9 @@ per-item progress and failure reporting.
 
 ## Roadmap
 
-- Persistent settings file (`~/.config/mediaforge/`)
+- Persistent settings file (`~/.config/vidsmith/`)
 - Subtitle/thumbnail embedding options in the custom wizard
-- Non-interactive one-shot mode (`mediaforge <url> --best`)
+- Non-interactive one-shot mode (`vidsmith <url> --best`)
 - Textual full-screen TUI
 - Additional providers behind the existing `Provider` ABC
 
@@ -268,9 +268,9 @@ pytest
 
 ## License
 
-[MIT](LICENSE) © MediaForge Contributors
+[MIT](LICENSE) © Naga Manikanta Nandyala
 
 ---
 
-*MediaForge is an independent project built on yt-dlp. Download only content
+*VidSmith is an independent project built on yt-dlp. Download only content
 you are authorized to access.*

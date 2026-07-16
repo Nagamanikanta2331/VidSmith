@@ -1,26 +1,26 @@
 import tempfile
 from pathlib import Path
 
-from mediaforge.cli.executor import _best_video_job
-from mediaforge.cli.wizard.base import WizardState
-from mediaforge.cli.wizard.wizards.video import (
+from vidsmith.cli.executor import _best_video_job
+from vidsmith.cli.wizard.base import WizardState
+from vidsmith.cli.wizard.wizards.video import (
     _dynamic_audio_choices,
     _dynamic_format_choices,
     _dynamic_quality_choices,
     _dynamic_subtitle_choices,
     _skip_audio_lang_step,
 )
-from mediaforge.downloader.cleanup import cleanup_job_artifacts
-from mediaforge.downloader.job import (
+from vidsmith.downloader.cleanup import cleanup_job_artifacts
+from vidsmith.downloader.job import (
     DownloadJob,
     DownloadMediaType,
     MetadataMode,
     SubtitleMode,
     ThumbnailMode,
 )
-from mediaforge.models.media import AnalysisResult, MediaType
-from mediaforge.transcript.engine import TranscriptEngine
-from mediaforge.transcript.models import (
+from vidsmith.models.media import AnalysisResult, MediaType
+from vidsmith.transcript.engine import TranscriptEngine
+from vidsmith.transcript.models import (
     TranscriptDocument,
     TranscriptOutputFormat,
     TranscriptSegment,
@@ -145,8 +145,8 @@ def test_cleanup_manager() -> None:
             metadata_mode=MetadataMode.EMBED,
         )
 
-        from mediaforge.downloader.validator import DownloadValidationResult
-        from mediaforge.downloader.validators.models import (
+        from vidsmith.downloader.validator import DownloadValidationResult
+        from vidsmith.downloader.validators.models import (
             SubtitleValidationResult,
             ThumbnailValidationResult,
         )

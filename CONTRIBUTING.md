@@ -1,6 +1,6 @@
-# Contributing to MediaForge
+# Contributing to VidSmith
 
-Thanks for your interest in improving MediaForge! This guide covers everything
+Thanks for your interest in improving VidSmith! This guide covers everything
 you need to make your first contribution.
 
 ## Code of Conduct
@@ -12,8 +12,8 @@ participating, you agree to uphold it.
 
 1. Fork and clone the repository:
    ```bash
-   git clone https://github.com/your-username/MediaForge.git
-   cd MediaForge
+   git clone https://github.com/Nagamanikanta2331/VidSmith.git
+   cd VidSmith
    ```
 2. Create a virtual environment and install with the dev extra:
    ```bash
@@ -37,7 +37,7 @@ participating, you agree to uphold it.
   ```bash
   ruff check .
   black --check .
-  mypy src/mediaforge
+  mypy src/vidsmith
   pytest
   ```
 - Commit using [Conventional Commits](https://www.conventionalcommits.org/)
@@ -53,7 +53,7 @@ participating, you agree to uphold it.
 
 ## Architecture Notes
 
-MediaForge enforces strict layer separation (see the Architecture section of
+VidSmith enforces strict layer separation (see the Architecture section of
 the README). In short:
 
 - `cli/*` knows about Rich, never about yt-dlp or FFmpeg.

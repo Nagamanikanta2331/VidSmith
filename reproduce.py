@@ -1,9 +1,9 @@
 import traceback
 from pathlib import Path
 
-import mediaforge.cli.executor as executor
-from mediaforge.cli.wizard.base import WizardState
-from mediaforge.metadata.analyzer import analyze
+import vidsmith.cli.executor as executor
+from vidsmith.cli.wizard.base import WizardState
+from vidsmith.metadata.analyzer import analyze
 
 
 def main():

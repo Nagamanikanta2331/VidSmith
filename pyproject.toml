@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mediaforge"
+name = "vidsmith"
 version = "1.0.0rc1"
 description = "A production-grade, zero-config YouTube media downloader for your terminal."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "MediaForge Contributors" }]
+authors = [{ name = "Naga Manikanta Nandyala", email = "nagamanikantanandyala@outlook.com" }]
 keywords = [
     "youtube",
     "download",
@@ -53,7 +53,7 @@ dependencies = [
 [project.optional-dependencies]
 # Planned full-screen TUI and typed CLI layers (not yet active at runtime).
 tui = ["textual>=0.61.0", "typer>=0.12.0"]
-# Everything needed to develop, lint, type-check, and test MediaForge.
+# Everything needed to develop, lint, type-check, and test VidSmith.
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -67,19 +67,19 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/MediaForge"
-Repository = "https://github.com/your-username/MediaForge"
-Issues = "https://github.com/your-username/MediaForge/issues"
-Changelog = "https://github.com/your-username/MediaForge/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Nagamanikanta2331/VidSmith"
+Repository = "https://github.com/Nagamanikanta2331/VidSmith"
+Issues = "https://github.com/Nagamanikanta2331/VidSmith/issues"
+Changelog = "https://github.com/Nagamanikanta2331/VidSmith/blob/main/CHANGELOG.md"
 
 [project.scripts]
-mediaforge = "mediaforge.main:main"
+vidsmith = "vidsmith.main:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mediaforge"]
+packages = ["src/vidsmith"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/mediaforge", "README.md", "LICENSE", "CHANGELOG.md"]
+include = ["src/vidsmith", "README.md", "LICENSE", "CHANGELOG.md"]
 
 # ── Quality tooling ───────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 ignore_missing_imports = true
 check_untyped_defs = true
-files = ["src/mediaforge"]
+files = ["src/vidsmith"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -130,7 +130,7 @@ addopts = "-ra -q"
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.coverage.run]
-source = ["src/mediaforge"]
+source = ["src/vidsmith"]
 branch = true
 
 [tool.coverage.report]

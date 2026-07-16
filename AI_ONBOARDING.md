@@ -1,4 +1,4 @@
-# MediaForge AI Onboarding
+# VidSmith AI Onboarding
 
 Read these documents in order:
 

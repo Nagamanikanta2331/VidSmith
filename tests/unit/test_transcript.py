@@ -2,11 +2,11 @@ from unittest import mock
 
 import pytest
 
-from mediaforge.cli.executor import execute_transcript
-from mediaforge.downloader.validator import DownloadValidationResult
-from mediaforge.downloader.validators.models import SubtitleValidationResult
-from mediaforge.providers.results import DownloadResult, DownloadResultStatus
-from mediaforge.transcript.models import TranscriptOutputFormat, TranscriptResult
+from vidsmith.cli.executor import execute_transcript
+from vidsmith.downloader.validator import DownloadValidationResult
+from vidsmith.downloader.validators.models import SubtitleValidationResult
+from vidsmith.providers.results import DownloadResult, DownloadResultStatus
+from vidsmith.transcript.models import TranscriptOutputFormat, TranscriptResult
 
 
 class DummyState(dict):
@@ -37,12 +37,12 @@ def analysis_result():
     return DummyResult()
 
 
-@mock.patch("mediaforge.cli.executor.Prompt.ask")
-@mock.patch("mediaforge.cli.executor._get_provider")
-@mock.patch("mediaforge.cli.executor.validate_download")
-@mock.patch("mediaforge.transcript.engine.TranscriptEngine")
-@mock.patch("mediaforge.cli.executor._show_success")
-@mock.patch("mediaforge.cli.executor._show_error")
+@mock.patch("vidsmith.cli.executor.Prompt.ask")
+@mock.patch("vidsmith.cli.executor._get_provider")
+@mock.patch("vidsmith.cli.executor.validate_download")
+@mock.patch("vidsmith.transcript.engine.TranscriptEngine")
+@mock.patch("vidsmith.cli.executor._show_success")
+@mock.patch("vidsmith.cli.executor._show_error")
 def test_execute_transcript_success(
     mock_show_error,
     mock_show_success,
@@ -115,9 +115,9 @@ def test_execute_transcript_success(
     mock_show_error.assert_not_called()
 
 
-@mock.patch("mediaforge.cli.executor._get_provider")
-@mock.patch("mediaforge.cli.executor.validate_download")
-@mock.patch("mediaforge.cli.executor._show_error")
+@mock.patch("vidsmith.cli.executor._get_provider")
+@mock.patch("vidsmith.cli.executor.validate_download")
+@mock.patch("vidsmith.cli.executor._show_error")
 def test_execute_transcript_http_429(
     mock_show_error, mock_validate, mock_get_provider, state, analysis_result, tmp_path
 ):
@@ -149,10 +149,10 @@ def test_execute_transcript_http_429(
     assert "YouTube is rate limiting" in mock_show_error.call_args[0][1]
 
 
-@mock.patch("mediaforge.cli.wizard.wizards.transcript.build_transcript_wizard")
-@mock.patch("mediaforge.cli.executor._get_provider")
-@mock.patch("mediaforge.cli.executor.validate_download")
-@mock.patch("mediaforge.cli.executor._show_error")
+@mock.patch("vidsmith.cli.wizard.wizards.transcript.build_transcript_wizard")
+@mock.patch("vidsmith.cli.executor._get_provider")
+@mock.patch("vidsmith.cli.executor.validate_download")
+@mock.patch("vidsmith.cli.executor._show_error")
 def test_execute_transcript_unavailable(
     mock_show_error,
     mock_validate,
@@ -193,10 +193,10 @@ def test_execute_transcript_unavailable(
     )
 
 
-@mock.patch("mediaforge.cli.executor._get_provider")
-@mock.patch("mediaforge.cli.executor.validate_download")
-@mock.patch("mediaforge.transcript.engine.TranscriptEngine")
-@mock.patch("mediaforge.cli.executor._show_error")
+@mock.patch("vidsmith.cli.executor._get_provider")
+@mock.patch("vidsmith.cli.executor.validate_download")
+@mock.patch("vidsmith.transcript.engine.TranscriptEngine")
+@mock.patch("vidsmith.cli.executor._show_error")
 def test_execute_transcript_failed_conversion(
     mock_show_error, mock_engine, mock_validate, mock_get_provider, state, analysis_result, tmp_path
 ):

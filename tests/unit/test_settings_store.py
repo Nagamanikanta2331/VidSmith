@@ -4,8 +4,8 @@ from unittest import mock
 
 import pytest
 
-from mediaforge.settings import AppSettings
-from mediaforge.settings.store import (
+from vidsmith.settings import AppSettings
+from vidsmith.settings.store import (
     default_download_dir,
     load_settings,
     save_settings,
@@ -15,7 +15,14 @@ from mediaforge.settings.store import (
 
 @pytest.fixture
 def mock_settings_dir(tmp_path: Path):
-    with mock.patch("mediaforge.settings.store.settings_dir", return_value=tmp_path):
+    # Isolate BOTH the new dir and the legacy (pre-rename) location, so a real
+    # MediaForge settings file on the developer's machine can't leak in via
+    # the one-time migration.
+    legacy = tmp_path / "legacy" / "settings.json"
+    with (
+        mock.patch("vidsmith.settings.store.settings_dir", return_value=tmp_path),
+        mock.patch("vidsmith.settings.store._legacy_settings_path", return_value=legacy),
+    ):
         yield tmp_path
 
 
@@ -23,6 +30,37 @@ def test_missing_settings(mock_settings_dir: Path):
     settings = load_settings()
     assert settings.default_container == "mp4"  # Default value
     assert not settings_path().exists()
+
+
+def test_legacy_mediaforge_settings_migrated(mock_settings_dir: Path):
+    """A pre-rename MediaForge settings file is copied on first load."""
+    from vidsmith.settings.store import _legacy_settings_path
+
+    legacy = _legacy_settings_path()
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(
+        json.dumps({"version": 1, "settings": {"default_container": "mkv"}}),
+        encoding="utf-8",
+    )
+
+    loaded = load_settings()
+    assert loaded.default_container == "mkv"
+    # Copied, not moved — the legacy file stays as a fallback.
+    assert legacy.exists()
+    assert settings_path().exists()
+
+
+def test_migration_never_overwrites_existing_settings(mock_settings_dir: Path):
+    """Once a VidSmith settings file exists, the legacy file is ignored."""
+    from vidsmith.settings.store import _legacy_settings_path
+
+    legacy = _legacy_settings_path()
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(json.dumps({"default_container": "webm"}), encoding="utf-8")
+
+    save_settings(AppSettings(default_container="mkv"))
+    loaded = load_settings()
+    assert loaded.default_container == "mkv"
 
 
 def test_save_and_load_settings(mock_settings_dir: Path):
@@ -92,7 +130,7 @@ def test_versioned_with_bad_payload_recovers(mock_settings_dir: Path):
 
 
 def test_default_download_dir(mock_settings_dir: Path):
-    import mediaforge.settings.store as store
+    import vidsmith.settings.store as store
 
     with mock.patch.object(store, "_current", AppSettings()):
         assert default_download_dir() == "~/Downloads"
@@ -102,9 +140,9 @@ def test_default_download_dir(mock_settings_dir: Path):
 
 def test_execute_settings_round_trip(mock_settings_dir: Path):
     """execute_settings maps wizard state → AppSettings → disk → shared instance."""
-    from mediaforge.cli.executor import execute_settings
-    from mediaforge.cli.wizard.base import WizardState
-    from mediaforge.settings.store import current_settings
+    from vidsmith.cli.executor import execute_settings
+    from vidsmith.cli.wizard.base import WizardState
+    from vidsmith.settings.store import current_settings
 
     state = WizardState(
         {

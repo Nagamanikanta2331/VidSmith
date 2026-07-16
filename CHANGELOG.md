@@ -1,8 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **Project renamed: MediaForge → VidSmith.** The previous name collided with an existing PyPI package. The distribution, import package (`vidsmith`), and terminal command (`vidsmith`) are all renamed; the on-screen logo and product name are rebranded. Functionality and behavior are unchanged.
+- Settings are now stored under the `VidSmith` config directory. Existing settings from a previous MediaForge install are automatically copied over on first launch — no reconfiguration needed.
+- Debug logs now write to `vidsmith.log` in the `VidSmith` config directory.
+- Repository moved to [Nagamanikanta2331/VidSmith](https://github.com/Nagamanikanta2331/VidSmith); all project links updated.
+
+### Fixed
+- Fixed an intermittent `UnicodeDecodeError` (`'charmap' codec can't decode byte …`) on Windows during post-download validation. Subprocess output from ffmpeg/ffprobe was being decoded with the legacy ANSI codepage (cp1252) instead of UTF-8, crashing the reader thread when video metadata contained non-ASCII characters (e.g. Hindi titles, fullwidth `｜`, emoji). All captured-output subprocess calls now decode as UTF-8 with `errors="replace"`.
+
 ## [1.0.0-rc1] - 2026-07-15
 
-MediaForge has reached its first Release Candidate! This release finalizes the core architectural refactoring and prepares the project for broader real-world testing.
+VidSmith has reached its first Release Candidate! This release finalizes the core architectural refactoring and prepares the project for broader real-world testing.
 
 ### Added
 - **Validation Pipeline**: Hardened the post-download validation architecture with an immutable `ValidationContext` and single-pass FFprobe inspection.
@@ -22,4 +33,4 @@ MediaForge has reached its first Release Candidate! This release finalizes the c
 - Suppressed duplicate metadata injection processes.
 - Fixed a critical `TypeError` string/int comparison bug in Best Download and Custom Video formats filtering.
 
-MediaForge is now feature-complete for its 1.0.0 milestone. Future updates in the RC phase will focus solely on packaging, bug fixes, and optimization.
+VidSmith is now feature-complete for its 1.0.0 milestone. Future updates in the RC phase will focus solely on packaging, bug fixes, and optimization.

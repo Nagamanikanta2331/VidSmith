@@ -27,12 +27,12 @@ mitigation timeline after triage.
 
 ## Scope
 
-MediaForge downloads media through `yt-dlp` and processes it with `FFmpeg`.
+VidSmith downloads media through `yt-dlp` and processes it with `FFmpeg`.
 Vulnerabilities in those upstream projects should be reported to them directly;
 we will track and update our dependency pins as fixes are released.
 
 ## Safe Usage
 
 - Only download content you are authorized to access.
-- MediaForge writes files to the directory you choose — review output paths when
+- VidSmith writes files to the directory you choose — review output paths when
   scripting it in automated contexts.
