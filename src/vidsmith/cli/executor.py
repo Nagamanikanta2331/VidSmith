@@ -8,6 +8,7 @@ The engines never know about Rich or the console.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from time import perf_counter
 
@@ -35,11 +36,13 @@ from vidsmith.downloader.progress import (
     stage_label,
 )
 from vidsmith.downloader.validator import DownloadValidationResult, validate_download
+from vidsmith.downloader.validators.models import ValidationErrorCode
 from vidsmith.models.media import AnalysisResult
 from vidsmith.playlist.models import PlaylistJob, PlaylistSelectionMode
 from vidsmith.providers.results import DownloadResult
 from vidsmith.providers.youtube import YouTubeProvider
 from vidsmith.subtitle import (
+    SUPPORTED_SUBTITLE_LANGUAGES,
     SubtitleSelection,
     resolve_subtitle_selection,
 )
@@ -199,16 +202,26 @@ def execute_playlist(state: WizardState, result: AnalysisResult) -> None:
         else []
     )
 
+    # Video items get the supported subtitle set (same blind policy as Best
+    # Download playlists — availability is unknown from flat analysis, and
+    # missing languages are non-fatal). Audio items keep subtitles off.
+    template = DownloadJob(
+        url=result.url,
+        media_type=dl_media_type,
+        output_dir=output_dir,
+        quality=quality,
+    )
+    if dl_media_type == DownloadMediaType.VIDEO:
+        selection = _blind_subtitle_selection()
+        template.subtitle_mode = SubtitleMode.BOTH
+        template.subtitle_languages = selection.codes
+        template.subtitle_requested_languages = selection.requested
+
     playlist_job = PlaylistJob(
         url=result.url,
         output_dir=output_dir,
         items=items,
-        download_template=DownloadJob(
-            url=result.url,
-            media_type=dl_media_type,
-            output_dir=output_dir,
-            quality=quality,
-        ),
+        download_template=template,
         selection_mode=selection_mode,
         selected_indices=selected_indices,
         range_start=range_start,
@@ -414,6 +427,7 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
     _warn_environment_once()
     completed = 0
     failed: list[tuple[str, str]] = []
+    warnings: list[tuple[str, str]] = []
     provider = _get_provider()
 
     with Progress(
@@ -435,8 +449,10 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
 
             try:
                 dl_res = provider.download(job)
-                _finalize_download(job, dl_res)
+                validation = _finalize_download(job, dl_res, strict=False)
                 completed += 1
+                if not validation.success:
+                    warnings.append((title, validation.error_message or "Validation warning"))
             except Exception as exc:
                 failed.append((title, str(exc)))
 
@@ -452,7 +468,12 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
         lines.append("")
         lines.append("[bold red]Failures:[/]")
         for title, err in failed[:5]:
-            lines.append(f"  [dim]-[/] {title}: [red]{err[:80]}[/]")
+            lines.append(f"  [dim]-[/] {title}: [red]{_format_item_error(err)}[/]")
+    if warnings:
+        lines.append("")
+        lines.append("[bold yellow]Warnings (media saved, embed check failed):[/]")
+        for title, warn in warnings[:5]:
+            lines.append(f"  [dim]-[/] {title}: [yellow]{_format_item_error(warn)}[/]")
 
     title = (
         "Playlist Best Download Complete"
@@ -488,6 +509,19 @@ def _resolve_job_subtitles(
         result.automatic_subtitle_languages or [],
         requested,
     )
+
+
+def _blind_subtitle_selection() -> SubtitleSelection:
+    """Supported-language selection for items with no per-item caption data.
+
+    Playlist analysis is flat (``extract_flat``), so per-item subtitle
+    availability is unknown. Request the full supported set and let yt-dlp
+    download whatever exists — with ``ignoreerrors=True`` unavailable tracks
+    are warnings, and the subtitle validator reports them as "unavailable"
+    without failing the item.
+    """
+    langs = list(SUPPORTED_SUBTITLE_LANGUAGES)
+    return SubtitleSelection(codes=langs, requested=langs)
 
 
 def _video_job(state: WizardState, result: AnalysisResult) -> DownloadJob:
@@ -533,9 +567,10 @@ def _best_video_job(
 ) -> DownloadJob:
     # Preferred subtitle languages (en/hi/te/ta): manual over auto, silent
     # skip when a language is unavailable. Playlist items are analyzed flat
-    # (no per-item subtitle data), so their selection resolves empty and
-    # subtitles stay off — never an error.
-    selection = _resolve_job_subtitles(result if url is None else None)
+    # (no per-item subtitle data), so the full supported set is requested
+    # blindly — yt-dlp downloads whatever exists, missing tracks surface as
+    # "⚠ unavailable" warnings, never an error.
+    selection = _resolve_job_subtitles(result) if url is None else _blind_subtitle_selection()
     sub_mode = SubtitleMode.BOTH if selection.codes else SubtitleMode.NONE
 
     # MP4 merge with embedded thumbnail, metadata, chapters, and subtitles.
@@ -922,15 +957,32 @@ def _run_download(
     render_summary(success_title, summary)
 
 
+# Validation codes that mean the media file itself is missing/unusable.
+# Anything else (thumbnail/subtitle/metadata embed checks) means the media
+# downloaded fine and a post-processing check failed — a warning for
+# playlist items, not a failed download.
+_FATAL_VALIDATION_CODES = {
+    ValidationErrorCode.FILE_MISSING,
+    ValidationErrorCode.FILE_EMPTY,
+}
+
+
 def _finalize_download(
     job: DownloadJob,
     dl_result: DownloadResult,
+    *,
+    strict: bool = True,
 ) -> DownloadValidationResult:
     """Validate a finished download and clean up temp artifacts on success.
 
     The single post-download contract shared by every mode: validate the final
     file, raise ``DownloadError`` if it failed, then remove temporary artifacts
     (passing the validation so only successfully-embedded sidecars are deleted).
+
+    With ``strict=False`` (playlist items), validation failures whose media
+    file exists (e.g. a thumbnail that didn't embed) do NOT raise — the
+    result is returned so the caller can report them as warnings. Cleanup is
+    skipped in that case so temporary artifacts stay available for recovery.
     """
     from vidsmith.settings.store import current_settings
 
@@ -938,7 +990,9 @@ def _finalize_download(
 
     validation = validate_download(job, dl_result)
     if not validation.success:
-        raise DownloadError(validation.error_message or "Validation failed.")
+        if strict or validation.error_code in _FATAL_VALIDATION_CODES:
+            raise DownloadError(validation.error_message or "Validation failed.")
+        return validation
 
     from vidsmith.downloader.cleanup import cleanup_job_artifacts
 
@@ -1003,6 +1057,20 @@ def _execute_provider_download(
     return provider.download(job, progress_callback=progress_callback)
 
 
+# The retry wrapper prefixes every failure with this constant text; in the
+# playlist summary it just eats the line budget, hiding the real reason.
+_ATTEMPT_PREFIX = re.compile(r"^YouTube \w+ download failed after \d+ attempts:\s*", re.IGNORECASE)
+
+
+def _format_item_error(msg: str, limit: int = 160) -> str:
+    """Compact a per-item failure for the playlist summary panel."""
+    text = _ATTEMPT_PREFIX.sub("", msg.strip()).strip()
+    text = " ".join(text.split())
+    if len(text) > limit:
+        text = text[: limit - 1] + "…"
+    return text or "Unknown error"
+
+
 def _run_queued(manager: DownloadManager, total: int, title: str) -> None:
     """Drive pending jobs in the manager to completion, showing Rich progress."""
     if total == 0:
@@ -1025,6 +1093,7 @@ def _run_queued(manager: DownloadManager, total: int, title: str) -> None:
         task_id = bar.add_task(f"Downloading {title}…", total=total)
         done = 0
         errors: list[str] = []
+        warnings: list[str] = []
 
         while True:
             pending = manager.list_jobs(status_filter=_JS.PENDING)
@@ -1038,24 +1107,36 @@ def _run_queued(manager: DownloadManager, total: int, title: str) -> None:
                 else:
                     dl_res = provider.download(job)
 
-                _finalize_download(job, dl_res)
+                validation = _finalize_download(job, dl_res, strict=False)
 
                 job.mark_completed()
+                if not validation.success:
+                    warnings.append(
+                        _format_item_error(validation.error_message or "Validation warning")
+                    )
             except Exception as exc:
                 job.mark_failed(str(exc))
-                errors.append(str(exc))
+                errors.append(_format_item_error(str(exc)))
             done += 1
             bar.update(task_id, completed=done)
 
     if errors:
+        body = "\n".join(errors[:5])
+        if warnings:
+            body += "\n\n[bold yellow]Warnings (media saved, embed check failed):[/]\n"
+            body += "\n".join(f"  [dim]-[/] [yellow]{w}[/]" for w in warnings[:5])
         _show_error(
             f"{len(errors)} item(s) failed",
-            "\n".join(errors[:5]),
+            body,
         )
     else:
+        body = f"[dim]Downloaded:[/] {done}/{total} items"
+        if warnings:
+            body += "\n\n[bold yellow]Warnings (media saved, embed check failed):[/]\n"
+            body += "\n".join(f"  [dim]-[/] [yellow]{w}[/]" for w in warnings[:5])
         _show_success(
             "Playlist Complete",
-            f"[dim]Downloaded:[/] {done}/{total} items",
+            body,
         )
 
 

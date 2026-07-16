@@ -26,6 +26,47 @@ from vidsmith.utils.validators import is_youtube_url
 
 # ── URL collection ────────────────────────────────────────────────────────────
 
+# Actions that produce output files. After one of these completes, the user is
+# asked whether to continue with the current video or start a new URL.
+# "metadata" (view-only) and "settings" keep their existing behavior.
+_DOWNLOAD_ACTIONS = {
+    "best_download",
+    "video",
+    "audio",
+    "subtitles",
+    "thumbnail",
+    "transcript",
+    "best_playlist_download",
+    "playlist_video",
+    "playlist_audio",
+    "playlist_subtitles",
+    "playlist_thumbnails",
+    "playlist_select",
+}
+
+
+def _prompt_post_download() -> str:
+    """Ask what to do after a completed download action.
+
+    Returns ``"same"`` (stay on this video's menu), ``"another"`` (prompt for
+    a new URL), or ``"quit"``.
+    """
+    console.print()
+    raw = (
+        Prompt.ask(
+            "  [bold cyan]Next[/] [dim](Enter = continue with this video · "
+            "n = download another video · q = quit)[/]",
+            default="",
+        )
+        .strip()
+        .lower()
+    )
+    if raw in {"n", "new", "another", "other"}:
+        return "another"
+    if raw in {"q", "quit", "exit"}:
+        return "quit"
+    return "same"
+
 
 def _prompt_url() -> str | None:
     """Show URL input prompt. Returns None when the user quits.
@@ -166,6 +207,17 @@ def run() -> None:
                         break
 
                     _handle_action(action, result)
+
+                    # After a download completes, offer to switch to a new URL
+                    # instead of silently returning to the same video's menu.
+                    if action in _DOWNLOAD_ACTIONS:
+                        nxt = _prompt_post_download()
+                        if nxt == "quit":
+                            _goodbye()
+                            return
+                        if nxt == "another":
+                            break  # → outer loop re-prompts for a URL
+                        # "same" → fall through, re-show this video's menu
                 except KeyboardInterrupt:
                     console.print("\n  [yellow]Action cancelled.[/]")
     except KeyboardInterrupt:

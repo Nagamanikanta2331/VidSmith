@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Post-download prompt.** After any download completes, the app now asks whether to continue with the current video (Enter), download another video (`n` → URL prompt), or quit (`q`) — instead of silently returning to the same video's menu.
+
+### Fixed
+- **Playlist downloads now include subtitles.** Both Best Download and Custom Playlist video items request the supported subtitle set (te/hi/ta/en, manual over auto) and embed whatever exists; unavailable languages are skipped silently.
+- **Playlist failure counting.** Items whose media downloaded fine but failed a post-processing check (e.g. thumbnail embedding) are no longer counted as failed downloads — they complete and are listed under "Warnings (media saved, embed check failed)".
+- **Playlist failure messages.** The constant "download failed after N attempts:" prefix is stripped and the visible reason budget raised from 80 to 160 characters, so the actual yt-dlp error is readable in the summary panel.
+
 ## [1.0.0] - 2026-07-16
 
 First stable release — published to [PyPI](https://pypi.org/project/vidsmith/): `pip install vidsmith`.
