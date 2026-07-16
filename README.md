@@ -72,13 +72,19 @@ subtitles, chapters, metadata, and cover art embedded automatically.
 
 ## Installation
 
+> **Note**: This package is not yet published to PyPI under the `mediaforge` name due to a naming collision. Please install from source.
+
+From source:
+
 ```bash
-pip install mediaforge
+git clone https://github.com/your-username/MediaForge.git
+cd MediaForge
+pip install -e .
 ```
 
 ### Prerequisites
 - **Python 3.12+**
-- **yt-dlp**: Installed automatically for you when you run the `pip install` command above. No manual installation is required!
+- **yt-dlp**: Installed automatically for you when you run the installation command above. No manual installation is required!
 
 ### Recommended System Tools
 While MediaForge comes with fallbacks, installing these system tools ensures maximum performance and compatibility:
@@ -92,14 +98,6 @@ If not found, MediaForge uses a bundled fallback (`imageio-ffmpeg`), but a nativ
 **2. Node.js or Deno (for complex YouTube extractions)**
 YouTube occasionally requires executing JavaScript to extract certain video formats.
 - **Windows/macOS/Linux:** Download from [Node.js](https://nodejs.org/) or install Deno via `iwr https://deno.land/install.ps1 -useb | iex` (Windows) / `curl -fsSL https://deno.land/install.sh | sh` (macOS/Linux).
-
-From source:
-
-```bash
-git clone https://github.com/your-username/MediaForge.git
-cd MediaForge
-pip install -e .
-```
 
 Verify your environment:
 
