@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- **Parallel playlist downloads.** Playlist items now actually download simultaneously — Best Download uses the `max_concurrency` setting (default 3), and Custom Playlist honors the wizard's "Parallel Downloads" answer (previously collected but ignored; items always downloaded one at a time). Each worker uses its own yt-dlp instance; per-item behavior is unchanged.
+- **Subtitle step in the Custom Playlist wizard.** Choose from Telugu / Hindi / Tamil / English (all pre-selected). English is a mandatory fallback: it is always requested even when deselected, so every item gets at least the auto-generated English track merged when one exists.
 - **Post-download prompt.** After any download completes, the app now asks whether to continue with the current video (Enter), download another video (`n` → URL prompt), or quit (`q`) — instead of silently returning to the same video's menu.
 
 ### Fixed

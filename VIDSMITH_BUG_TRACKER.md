@@ -81,3 +81,12 @@
 - **Fix:** `_finalize_download(strict=False)` for playlist items — only `FILE_MISSING`/`FILE_EMPTY` still raise; embed-check failures return the validation and are reported under "Warnings (media saved, embed check failed)". New `_format_item_error()` strips the retry prefix and keeps 160 chars of the actual reason. Single-video behavior unchanged (`strict=True` default).
 - **Files:** `cli/executor.py` (`_finalize_download`, `execute_best_playlist_download`, `_run_queued`)
 - **Priority:** High
+
+### BUG-009: Playlist Downloads Serial Despite "Parallel Downloads" Setting
+- **Title:** The wizard's "Parallel Downloads: N" answer was collected but never used; all playlist items downloaded one at a time.
+- **Symptoms:** 43-item playlist took ~43× single-item time regardless of the concurrency chosen in the wizard. Reported from user playlist testing on 2026-07-16.
+- **Status:** Fixed
+- **Root Cause:** Both playlist loops (`execute_best_playlist_download`, `_run_queued`) were sequential `for`/`while` loops; the `concurrency` wizard key and `AppSettings.max_concurrency` were never read by any download path.
+- **Fix:** Both paths now run items through a `ThreadPoolExecutor` — Best Download sized by `max_concurrency` (default 3), Custom Playlist by the wizard answer (1–5). Each worker constructs its own `YoutubeDL`, so no yt-dlp state is shared; results/warnings/errors are aggregated in the main thread.
+- **Files:** `cli/executor.py` (`execute_best_playlist_download`, `_run_queued`, `execute_playlist`)
+- **Priority:** High

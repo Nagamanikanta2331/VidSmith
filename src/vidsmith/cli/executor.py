@@ -202,9 +202,12 @@ def execute_playlist(state: WizardState, result: AnalysisResult) -> None:
         else []
     )
 
-    # Video items get the supported subtitle set (same blind policy as Best
-    # Download playlists — availability is unknown from flat analysis, and
-    # missing languages are non-fatal). Audio items keep subtitles off.
+    # Video items get the wizard's subtitle selection, ordered by the
+    # supported-language policy. English is a mandatory fallback — it is
+    # requested even when deselected, so every item gets at least the auto
+    # English track merged when one exists (availability is unknown from
+    # flat analysis, and missing languages are non-fatal). Audio items keep
+    # subtitles off.
     template = DownloadJob(
         url=result.url,
         media_type=dl_media_type,
@@ -212,10 +215,11 @@ def execute_playlist(state: WizardState, result: AnalysisResult) -> None:
         quality=quality,
     )
     if dl_media_type == DownloadMediaType.VIDEO:
-        selection = _blind_subtitle_selection()
+        chosen = set(state.get("subtitle_langs") or []) | {"en"}
+        langs = [lang for lang in SUPPORTED_SUBTITLE_LANGUAGES if lang in chosen]
         template.subtitle_mode = SubtitleMode.BOTH
-        template.subtitle_languages = selection.codes
-        template.subtitle_requested_languages = selection.requested
+        template.subtitle_languages = langs
+        template.subtitle_requested_languages = langs
 
     playlist_job = PlaylistJob(
         url=result.url,
@@ -242,7 +246,8 @@ def execute_playlist(state: WizardState, result: AnalysisResult) -> None:
         _show_error("Playlist Errors", "\n".join(pl_result.errors[:5]))
 
     total = len(pl_result.queued_job_ids)
-    _run_queued(manager, total, result.title)
+    concurrency = int(state.get("concurrency", 1) or 1)
+    _run_queued(manager, total, result.title, concurrency=concurrency)
 
 
 def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
@@ -414,7 +419,16 @@ def execute_best_download(state: WizardState, result: AnalysisResult) -> None:
 
 
 def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -> None:
-    """Apply the recommended video preset to every playlist item."""
+    """Apply the recommended video preset to every playlist item.
+
+    Items download in parallel (the "Parallel Downloads" setting, default 3):
+    each worker gets its own ``YoutubeDL`` instance, so wall-clock time drops
+    close to 1/N without changing per-item behavior.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from vidsmith.settings.store import current_settings
+
     output_dir = _prompt_download_location()
     if output_dir is None:
         return
@@ -429,6 +443,19 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
     failed: list[tuple[str, str]] = []
     warnings: list[tuple[str, str]] = []
     provider = _get_provider()
+    workers = max(1, min(current_settings().max_concurrency, len(items)))
+
+    def _download_item(index: int, item_url: str, title: str) -> tuple[str, str, str]:
+        job = _best_video_job(result, output_dir, url=item_url)
+        job.output_template = f"{index:03d} - %(title)s.%(ext)s"
+        try:
+            dl_res = provider.download(job)
+            validation = _finalize_download(job, dl_res, strict=False)
+            if not validation.success:
+                return ("warning", title, validation.error_message or "Validation warning")
+            return ("ok", title, "")
+        except Exception as exc:
+            return ("error", title, str(exc))
 
     with Progress(
         SpinnerColumn(),
@@ -439,24 +466,27 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
         console=console,
         transient=True,
     ) as bar:
-        task_id = bar.add_task(f"Best Download: {result.title}", total=len(items))
+        task_id = bar.add_task(
+            f"Best Download: {result.title} ({workers} at a time)",
+            total=len(items),
+        )
 
-        for index, item in enumerate(items, 1):
-            title = item.title or f"Item {index}"
-            bar.update(task_id, description=f"[{index}/{len(items)}] {title[:50]}")
-            job = _best_video_job(result, output_dir, url=item.url)
-            job.output_template = f"{index:03d} - %(title)s.%(ext)s"
-
-            try:
-                dl_res = provider.download(job)
-                validation = _finalize_download(job, dl_res, strict=False)
-                completed += 1
-                if not validation.success:
-                    warnings.append((title, validation.error_message or "Validation warning"))
-            except Exception as exc:
-                failed.append((title, str(exc)))
-
-            bar.update(task_id, completed=index)
+        done = 0
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [
+                pool.submit(_download_item, index, item.url, item.title or f"Item {index}")
+                for index, item in enumerate(items, 1)
+            ]
+            for future in as_completed(futures):
+                kind, title, msg = future.result()
+                if kind == "error":
+                    failed.append((title, msg))
+                else:
+                    completed += 1
+                    if kind == "warning":
+                        warnings.append((title, msg))
+                done += 1
+                bar.update(task_id, completed=done)
 
     lines: list[str] = [
         f"[dim]Output directory:[/] {output_dir}",
@@ -1071,15 +1101,54 @@ def _format_item_error(msg: str, limit: int = 160) -> str:
     return text or "Unknown error"
 
 
-def _run_queued(manager: DownloadManager, total: int, title: str) -> None:
-    """Drive pending jobs in the manager to completion, showing Rich progress."""
+def _run_queued(
+    manager: DownloadManager,
+    total: int,
+    title: str,
+    concurrency: int = 1,
+) -> None:
+    """Drive pending jobs in the manager to completion, showing Rich progress.
+
+    Jobs run through a thread pool sized by *concurrency* (the wizard's
+    "Parallel Downloads" answer). Each worker uses its own ``YoutubeDL``
+    instance, so parallel items never share yt-dlp state.
+    """
     if total == 0:
         _show_error("Nothing Queued", "No items were submitted to the download queue.")
         return
 
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from vidsmith.downloader.job import JobStatus as _JS
 
     provider = _get_provider()
+    pending = manager.list_jobs(status_filter=_JS.PENDING)
+    workers = max(1, min(concurrency, len(pending))) if pending else 1
+
+    def _download_one(job: DownloadJob) -> tuple[str, str]:
+        job.mark_running()
+        try:
+            if job.media_type == DownloadMediaType.AUDIO:
+                dl_res = provider.download_audio(job)
+            else:
+                dl_res = provider.download(job)
+
+            validation = _finalize_download(job, dl_res, strict=False)
+
+            job.mark_completed()
+            if not validation.success:
+                return (
+                    "warning",
+                    _format_item_error(validation.error_message or "Validation warning"),
+                )
+            return ("ok", "")
+        except Exception as exc:
+            job.mark_failed(str(exc))
+            return ("error", _format_item_error(str(exc)))
+
+    done = 0
+    errors: list[str] = []
+    warnings: list[str] = []
 
     with Progress(
         SpinnerColumn(),
@@ -1090,35 +1159,21 @@ def _run_queued(manager: DownloadManager, total: int, title: str) -> None:
         console=console,
         transient=True,
     ) as bar:
-        task_id = bar.add_task(f"Downloading {title}…", total=total)
-        done = 0
-        errors: list[str] = []
-        warnings: list[str] = []
+        task_id = bar.add_task(
+            f"Downloading {title}… ({workers} at a time)",
+            total=total,
+        )
 
-        while True:
-            pending = manager.list_jobs(status_filter=_JS.PENDING)
-            if not pending:
-                break
-            job = pending[0]
-            job.mark_running()
-            try:
-                if job.media_type == DownloadMediaType.AUDIO:
-                    dl_res = provider.download_audio(job)
-                else:
-                    dl_res = provider.download(job)
-
-                validation = _finalize_download(job, dl_res, strict=False)
-
-                job.mark_completed()
-                if not validation.success:
-                    warnings.append(
-                        _format_item_error(validation.error_message or "Validation warning")
-                    )
-            except Exception as exc:
-                job.mark_failed(str(exc))
-                errors.append(_format_item_error(str(exc)))
-            done += 1
-            bar.update(task_id, completed=done)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(_download_one, job) for job in pending]
+            for future in as_completed(futures):
+                kind, msg = future.result()
+                if kind == "error":
+                    errors.append(msg)
+                elif kind == "warning":
+                    warnings.append(msg)
+                done += 1
+                bar.update(task_id, completed=done)
 
     if errors:
         body = "\n".join(errors[:5])

@@ -5,6 +5,7 @@ from vidsmith.cli.wizard.steps import (
     Choice,
     ChoiceStep,
     ConfirmationStep,
+    MultiSelectStep,
     NumericStep,
     TextInputStep,
 )
@@ -29,11 +30,23 @@ _QUALITY_CHOICES = [
     Choice("360p   (SD)", "360"),
 ]
 
+# Playlist analysis is flat (no per-item caption data), so the supported set
+# is offered statically. English is the mandatory fallback: it is requested
+# even when deselected, so every item gets at least the auto English track
+# merged when available.
+_SUBTITLE_CHOICES = [
+    Choice("Telugu", "te", "Manual or auto-generated"),
+    Choice("Hindi", "hi", "Manual or auto-generated"),
+    Choice("Tamil", "ta", "Manual or auto-generated"),
+    Choice("English", "en", "Always included (mandatory fallback)"),
+]
+
 _SUMMARY = [
     ("item_selection", "Items"),
     ("item_range", "Range"),
     ("media_type", "Media Type"),
     ("quality", "Quality"),
+    ("subtitle_langs", "Subtitles"),
     ("output_dir", "Save to"),
     ("concurrency", "Parallel Downloads"),
 ]
@@ -80,6 +93,14 @@ def build_playlist_wizard() -> Wizard:
                 title="Quality",
                 choices=_QUALITY_CHOICES,
                 default_index=_default_quality_index,
+                skip_when=lambda s: s.get("media_type") == "audio",
+            ),
+            MultiSelectStep(
+                key="subtitle_langs",
+                title="Subtitles",
+                choices=_SUBTITLE_CHOICES,
+                min_selections=0,
+                default_indices=[0, 1, 2, 3],
                 skip_when=lambda s: s.get("media_type") == "audio",
             ),
             TextInputStep(
