@@ -57,7 +57,7 @@ _logger = logging.getLogger("mediaforge.provider.youtube")
 
 # Hard cap for the per-subtitle-request throttle. yt-dlp sleeps this long
 # before EVERY subtitle track (fetched before media), so total pre-download
-# wait is delay × track count — 15s × 4 tracks is already a full minute.
+# wait is delay x track count — 15s x 4 tracks is already a full minute.
 _MAX_SUBTITLE_SLEEP = 15
 
 

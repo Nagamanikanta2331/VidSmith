@@ -240,7 +240,6 @@ def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
         TimestampMode,
         TranscriptJob,
         TranscriptOutputFormat,
-        TranscriptValidationResult,
     )
 
     while True:
@@ -350,7 +349,7 @@ def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
 
                 # Clean up intermediate files. Use the exact paths yt-dlp reported
                 # (dl_result.files) — yt-dlp sanitizes titles differently than
-                # _safe_filename (e.g. "｜" vs "_"), so a glob on safe_title can
+                # _safe_filename (e.g. "|" vs "_"), so a glob on safe_title can
                 # miss the real sidecar. Keep the glob as a fallback for stray
                 # partials that match our sanitization.
                 candidates = [f for f in dl_result.files if f is not None]
@@ -677,7 +676,7 @@ def execute_subtitles(state: WizardState, result: AnalysisResult) -> None:
                         engine.convert(t_job)
                         # Optionally delete the original vtt file
                         file_path.unlink(missing_ok=True)
-                    except Exception as e:
+                    except Exception:
                         # Log to standard error/warning stream if logging is configured
                         pass
 
