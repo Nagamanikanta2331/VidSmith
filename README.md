@@ -71,15 +71,22 @@ __     ___     _ ____            _ _   _
 
 ## Installation
 
-> **Note**: This package is not yet published to PyPI under the `vidsmith` name due to a naming collision. Please install from source.
+Install directly from GitHub (recommended until the first PyPI release):
 
-From source:
+```bash
+pip install git+https://github.com/Nagamanikanta2331/VidSmith.git
+```
+
+Or clone and install from source:
 
 ```bash
 git clone https://github.com/Nagamanikanta2331/VidSmith.git
 cd VidSmith
 pip install -e .
 ```
+
+> **Note**: `pip install vidsmith` will work once the first release is published
+> to PyPI. Until then, use one of the commands above.
 
 ### Prerequisites
 - **Python 3.12+**
