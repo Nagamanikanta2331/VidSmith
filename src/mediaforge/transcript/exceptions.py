@@ -1,0 +1,21 @@
+"""Transcript-specific MediaForge exceptions."""
+
+from __future__ import annotations
+
+from mediaforge.utils.exceptions import MediaForgeError
+
+
+class TranscriptError(MediaForgeError):
+    """Base exception for transcript failures."""
+
+
+class TranscriptParseError(TranscriptError):
+    """Raised when transcript input cannot be parsed."""
+
+
+class TranscriptExportError(TranscriptError):
+    """Raised when transcript output cannot be exported."""
+
+
+class UnsupportedTranscriptFormatError(TranscriptError):
+    """Raised when a transcript format is unsupported."""

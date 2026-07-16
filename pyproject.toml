@@ -1,0 +1,138 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mediaforge"
+version = "1.0.0rc1"
+description = "A production-grade, zero-config YouTube media downloader for your terminal."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "MediaForge Contributors" }]
+keywords = [
+    "youtube",
+    "download",
+    "yt-dlp",
+    "video",
+    "audio",
+    "subtitles",
+    "cli",
+    "ffmpeg",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Utilities",
+]
+
+dependencies = [
+    "rich>=13.7.0",
+    "yt-dlp>=2024.1.0",
+    "webvtt-py>=0.4.6",
+    "imageio-ffmpeg>=0.6.0",
+    # Browser impersonation: lets yt-dlp satisfy YouTube's impersonation
+    # requirement and avoids the "no impersonate target is available" warning
+    # (and much of the subtitle HTTP 429 throttling).
+    "curl_cffi>=0.7.0",
+    # Proper cover-art atoms for MP4/M4A so embedded thumbnails are visible in
+    # Windows Explorer / players (yt-dlp falls back to ffmpeg attached_pic
+    # otherwise, which many viewers ignore).
+    "mutagen>=1.47.0",
+]
+
+[project.optional-dependencies]
+# Planned full-screen TUI and typed CLI layers (not yet active at runtime).
+tui = ["textual>=0.61.0", "typer>=0.12.0"]
+# Everything needed to develop, lint, type-check, and test MediaForge.
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.5.0",
+    "black>=24.0",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "build>=1.2",
+    "twine>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/MediaForge"
+Repository = "https://github.com/your-username/MediaForge"
+Issues = "https://github.com/your-username/MediaForge/issues"
+Changelog = "https://github.com/your-username/MediaForge/blob/main/CHANGELOG.md"
+
+[project.scripts]
+mediaforge = "mediaforge.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mediaforge"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/mediaforge", "README.md", "LICENSE", "CHANGELOG.md"]
+
+# ── Quality tooling ───────────────────────────────────────────────────────────
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length handled by the formatter
+    "B008",   # function calls in argument defaults (Typer/Rich patterns)
+    "B009",   # dynamic provider capability checks intentionally use getattr
+    "N806",   # local constants like MAX_SHOWN are readable in UI code
+    "N814",   # local enum aliases
+    "N818",   # private internal exception naming
+    "RUF001", # Rich UI intentionally uses typographic glyphs
+    "RUF002", # Rich UI/docstrings intentionally use typographic glyphs
+    "RUF012", # legacy class constants
+    "RUF046", # explicit int(round(...)) is clearer in summaries
+    "SIM105", # suppress() is not always clearer in cleanup blocks
+    "SIM108", # explicit UI renderable branches are easier to type-check
+    "UP036",  # keep explicit runtime version guards for friendly errors
+    "UP042",  # str + Enum is kept for compatibility with persisted values
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["N802", "N803"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+check_untyped_defs = true
+files = ["src/mediaforge"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra -q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["src/mediaforge"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

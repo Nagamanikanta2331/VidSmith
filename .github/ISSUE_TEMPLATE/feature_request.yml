@@ -1,0 +1,44 @@
+name: Feature Request
+description: Suggest an idea or enhancement for MediaForge
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please check the roadmap in the
+        README and existing issues/discussions first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What are you trying to do, and what is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or command you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Download engine
+        - Subtitles
+        - Thumbnails / metadata
+        - CLI / UX
+        - Packaging / install
+        - Documentation
+        - Other
+    validations:
+      required: true
