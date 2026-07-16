@@ -50,7 +50,12 @@ def validate_thumbnail(ctx: ValidationContext, validation: DownloadValidationRes
                             is_emb = True
                             break
                         if c_type == "video" and c_name in {"mjpeg", "jpeg", "jpg", "png", "webp"}:
-                            if duration == 0.0 or duration_str == "0.000000" or "cover" in handler_name or "artwork" in handler_name:
+                            if (
+                                duration == 0.0
+                                or duration_str == "0.000000"
+                                or "cover" in handler_name
+                                or "artwork" in handler_name
+                            ):
                                 is_emb = True
                                 break
                             nb_frames = stream.get("nb_frames", "")
@@ -71,7 +76,11 @@ def validate_thumbnail(ctx: ValidationContext, validation: DownloadValidationRes
                             if mimetype.startswith("image/"):
                                 is_emb = True
                                 break
-                            if duration == 0.0 or duration_str == "0.000000" or stream.get("nb_frames") == "1":
+                            if (
+                                duration == 0.0
+                                or duration_str == "0.000000"
+                                or stream.get("nb_frames") == "1"
+                            ):
                                 is_emb = True
                                 break
 
@@ -82,7 +91,7 @@ def validate_thumbnail(ctx: ValidationContext, validation: DownloadValidationRes
                 else:
                     validation.fail(
                         ValidationErrorCode.THUMBNAIL_NOT_EMBEDDED,
-                        f"Validation failed: Thumbnail embedding failed for {ctx.primary_output.name}. Temporary files preserved."
+                        f"Validation failed: Thumbnail embedding failed for {ctx.primary_output.name}. Temporary files preserved.",  # type: ignore
                     )
                     thumb_val.success = False
             else:

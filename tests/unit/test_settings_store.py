@@ -18,10 +18,12 @@ def mock_settings_dir(tmp_path: Path):
     with mock.patch("mediaforge.settings.store.settings_dir", return_value=tmp_path):
         yield tmp_path
 
+
 def test_missing_settings(mock_settings_dir: Path):
     settings = load_settings()
     assert settings.default_container == "mp4"  # Default value
     assert not settings_path().exists()
+
 
 def test_save_and_load_settings(mock_settings_dir: Path):
     s = AppSettings(default_container="mkv", subtitle_delay_seconds=999)
@@ -36,6 +38,7 @@ def test_save_and_load_settings(mock_settings_dir: Path):
     loaded = load_settings()
     assert loaded.default_container == "mkv"
     assert loaded.subtitle_delay_seconds == 999
+
 
 def test_corrupt_settings(mock_settings_dir: Path):
     sp = settings_path()
@@ -93,9 +96,7 @@ def test_default_download_dir(mock_settings_dir: Path):
 
     with mock.patch.object(store, "_current", AppSettings()):
         assert default_download_dir() == "~/Downloads"
-    with mock.patch.object(
-        store, "_current", AppSettings(default_output_directory="D:/Media")
-    ):
+    with mock.patch.object(store, "_current", AppSettings(default_output_directory="D:/Media")):
         assert default_download_dir() == "D:/Media"
 
 

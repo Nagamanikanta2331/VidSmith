@@ -16,6 +16,7 @@ def _format_bytes(value: int | None) -> str:
         amount /= 1024
     return f"{amount:.1f} PB"
 
+
 def _media_duration(seconds: int | float | str | None) -> str:
     if not seconds:
         return "Unknown"
@@ -34,6 +35,7 @@ def _media_duration(seconds: int | float | str | None) -> str:
         return f"{minutes}m {secs}s"
     return f"{secs}s"
 
+
 def _elapsed_label(seconds: float | None) -> str:
     if seconds is None:
         return ""
@@ -41,6 +43,7 @@ def _elapsed_label(seconds: float | None) -> str:
     if rounded < 60:
         return f"{rounded} seconds"
     return _media_duration(rounded)
+
 
 def render_summary(title: str, summary: SummaryModel) -> None:
     table = Table.grid(padding=(0, 2))

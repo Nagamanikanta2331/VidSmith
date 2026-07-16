@@ -345,12 +345,16 @@ class YouTubeProvider(Provider):
                 )
             except Exception as exc:
                 last_error = str(exc)
-                
+
                 sub_err = re.search(r"Unable to download video subtitles for '([^']+)'", last_error)
                 if sub_err:
                     failed_lang = sub_err.group(1)
                     if attempt >= attempts:
-                        _logger.warning("Skipping failing subtitle language '%s' after %d attempts.", failed_lang, attempts)
+                        _logger.warning(
+                            "Skipping failing subtitle language '%s' after %d attempts.",
+                            failed_lang,
+                            attempts,
+                        )
                         langs = list(run_options.get("subtitleslangs", []))
                         if failed_lang in langs:
                             langs.remove(failed_lang)
@@ -362,7 +366,9 @@ class YouTubeProvider(Provider):
                             run_options["writeautomaticsub"] = False
                         attempts += 1
                     else:
-                        run_options["sleep_interval_subtitles"] = int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
+                        run_options["sleep_interval_subtitles"] = (
+                            int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
+                        )
 
                 _logger.warning(
                     "Attempt %d/%d failed for %s: %s", attempt, attempts, normalized_url, last_error
@@ -388,13 +394,19 @@ class YouTubeProvider(Provider):
                 # With ignoreerrors set, yt-dlp reports fatal failures through
                 # its logger and returns None instead of raising — surface the
                 # real reason and retry like any other failure.
-                last_error = subtitle_logger.last_error or "YouTube returned no data (no error reported)."
-                
+                last_error = (
+                    subtitle_logger.last_error or "YouTube returned no data (no error reported)."
+                )
+
                 sub_err = re.search(r"Unable to download video subtitles for '([^']+)'", last_error)
                 if sub_err:
                     failed_lang = sub_err.group(1)
                     if attempt >= attempts:
-                        _logger.warning("Skipping failing subtitle language '%s' after %d attempts.", failed_lang, attempts)
+                        _logger.warning(
+                            "Skipping failing subtitle language '%s' after %d attempts.",
+                            failed_lang,
+                            attempts,
+                        )
                         langs = list(run_options.get("subtitleslangs", []))
                         if failed_lang in langs:
                             langs.remove(failed_lang)
@@ -406,7 +418,9 @@ class YouTubeProvider(Provider):
                             run_options["writeautomaticsub"] = False
                         attempts += 1
                     else:
-                        run_options["sleep_interval_subtitles"] = int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
+                        run_options["sleep_interval_subtitles"] = (
+                            int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
+                        )
 
                 _logger.warning(
                     "Attempt %d/%d returned no info for %s: %s",
@@ -444,7 +458,18 @@ class YouTubeProvider(Provider):
                         f
                         for f in self._downloaded_files(info)
                         if f.suffix.lower()
-                        not in {".vtt", ".srt", ".ass", ".lrc", ".ttml", ".jpg", ".jpeg", ".png", ".webp", ".json"}
+                        not in {
+                            ".vtt",
+                            ".srt",
+                            ".ass",
+                            ".lrc",
+                            ".ttml",
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".webp",
+                            ".json",
+                        }
                     ),
                     None,
                 )
@@ -558,7 +583,7 @@ class YouTubeProvider(Provider):
                     info = ydl.sanitize_info(raw_info)
             except _DownloadCancelled:
                 return recovered_files
-            except Exception as exc:  # noqa: BLE001 — a retry round must never kill the download
+            except Exception as exc:
                 _logger.warning("Subtitle retry %d failed entirely: %s", attempt, exc)
                 continue
 
@@ -572,9 +597,7 @@ class YouTubeProvider(Provider):
                 )
                 for lang in newly_recovered:
                     subtitle_logger.subtitle_failures.pop(lang, None)
-                    _logger.info(
-                        "Recovered rate-limited subtitle '%s' on retry %d.", lang, attempt
-                    )
+                    _logger.info("Recovered rate-limited subtitle '%s' on retry %d.", lang, attempt)
             remaining = [lang for lang in remaining if lang in still_failed]
 
         for lang in remaining:
@@ -645,15 +668,23 @@ class YouTubeProvider(Provider):
         try:
             probe = subprocess.run(
                 [
-                    ffprobe, "-v", "error", "-select_streams", "s",
-                    "-show_entries", "stream=index", "-of", "json", str(media_file),
+                    ffprobe,
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "s",
+                    "-show_entries",
+                    "stream=index",
+                    "-of",
+                    "json",
+                    str(media_file),
                 ],
                 capture_output=True,
                 text=True,
                 check=True,
             )
             existing_subs = len(_json.loads(probe.stdout).get("streams", []))
-        except Exception as exc:  # noqa: BLE001 — best-effort only
+        except Exception as exc:
             _logger.warning("Could not probe %s before subtitle mux: %s", media_file.name, exc)
             return
 
@@ -694,7 +725,7 @@ class YouTubeProvider(Provider):
             _logger.info(
                 "Embedded %d recovered subtitle track(s) into %s.", len(subs), media_file.name
             )
-        except Exception as exc:  # noqa: BLE001 — never fail the download over this
+        except Exception as exc:
             _logger.warning("Subtitle mux into %s failed: %s", media_file.name, exc)
             tmp_file.unlink(missing_ok=True)
 
@@ -706,7 +737,11 @@ class YouTubeProvider(Provider):
         options = self._base_download_options(job, progress_callback)
 
         # Artifact-only downloads (subtitles/thumbnail only)
-        if job.media_type in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE, DownloadMediaType.THUMBNAIL):
+        if job.media_type in (
+            DownloadMediaType.TRANSCRIPT,
+            DownloadMediaType.SUBTITLE,
+            DownloadMediaType.THUMBNAIL,
+        ):
             options.update(
                 {
                     "skip_download": True,
@@ -717,7 +752,7 @@ class YouTubeProvider(Provider):
                     "postprocessors": [],
                 }
             )
-            
+
             # Adaptive delay for HTTP 429 errors during subtitle-only downloads:
             # 5s more per retry (5, 10, 15, 20, 25s), up to 5 tries.
             if job.media_type == DownloadMediaType.SUBTITLE:
@@ -734,8 +769,10 @@ class YouTubeProvider(Provider):
                         "when": "before_dl",
                     }
                 ]
-            
-            if job.media_type == DownloadMediaType.SUBTITLE and getattr(job, "transcript_format", ""):
+
+            if job.media_type == DownloadMediaType.SUBTITLE and getattr(
+                job, "transcript_format", ""  # type: ignore
+            ):
                 options["subtitlesformat"] = "vtt"  # Ensure we download vtt for the postprocessor
 
             return options
@@ -743,7 +780,9 @@ class YouTubeProvider(Provider):
         # Audio Download
         if job.media_type == DownloadMediaType.AUDIO:
             audio_format = self._normalized_audio_format(job.audio_format)
-            options["format"] = self._audio_format_selector(audio_format, getattr(job, "audio_stream_id", ""))
+            options["format"] = self._audio_format_selector(
+                audio_format, getattr(job, "audio_stream_id", "")
+            )
             if audio_format != "original":
                 options["postprocessors"] = [
                     {
@@ -1189,7 +1228,9 @@ class YouTubeProvider(Provider):
         if media_type == "thumbnail":
             files = [f for f in files if f.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}]
         elif media_type == "subtitles":
-            files = [f for f in files if f.suffix.lower() in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}]
+            files = [
+                f for f in files if f.suffix.lower() in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}
+            ]
         return DownloadResult(
             job_id=job.job_id,
             url=url,
@@ -1197,8 +1238,8 @@ class YouTubeProvider(Provider):
             output_dir=job.output_dir,
             files=files,
             media_type=media_type,
-            format_id=self._text(info.get('format_id')),
-            title=self._text(info.get('title')),
+            format_id=self._text(info.get("format_id")),
+            title=self._text(info.get("title")),
             message=stage_label(DownloadStage.COMPLETED),
             metadata=self._result_metadata(info),
             subtitles_failed=subtitle_failures or {},
@@ -1421,7 +1462,7 @@ class YouTubeProvider(Provider):
                         item.get("filename"),
                     ]
                 )
-        
+
         thumbnails = info.get("thumbnails")
         if isinstance(thumbnails, list):
             for item in thumbnails:
@@ -1434,7 +1475,7 @@ class YouTubeProvider(Provider):
                         item.get("filename"),
                     ]
                 )
-        
+
         requested_subtitles = info.get("requested_subtitles")
         if isinstance(requested_subtitles, dict):
             for item in requested_subtitles.values():

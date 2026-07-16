@@ -21,12 +21,18 @@ VALIDATORS = (
     validate_audio,
 )
 
+
 def _get_primary_output(files: list[Path]) -> Path | None:
     if not files:
         return None
     # Prefer non-sidecar media files as primary
     for path in files:
-        if path.exists() and path.is_file() and path.suffix.lower() not in {".vtt", ".srt", ".ass", ".lrc", ".ttml", ".jpg", ".png", ".webp", ".json"}:
+        if (
+            path.exists()
+            and path.is_file()
+            and path.suffix.lower()
+            not in {".vtt", ".srt", ".ass", ".lrc", ".ttml", ".jpg", ".png", ".webp", ".json"}
+        ):
             return path
     # Fallback to the first existing file
     for path in files:

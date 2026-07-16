@@ -9,7 +9,10 @@ from mediaforge.subtitle import language_matches
 
 
 def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationResult) -> None:
-    if ctx.job.subtitle_mode == SubtitleMode.NONE and ctx.job.media_type not in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE):
+    if ctx.job.subtitle_mode == SubtitleMode.NONE and ctx.job.media_type not in (
+        DownloadMediaType.TRANSCRIPT,
+        DownloadMediaType.SUBTITLE,
+    ):
         return
 
     embedded: set[str] = set()
@@ -62,7 +65,10 @@ def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationRes
 
     # 4. Determine subtitle success
     success = True
-    if ctx.job.media_type in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE) and not sidecars:
+    if (
+        ctx.job.media_type in (DownloadMediaType.TRANSCRIPT, DownloadMediaType.SUBTITLE)
+        and not sidecars
+    ):
         success = False
 
     validation.subtitle = SubtitleValidationResult(
@@ -73,8 +79,15 @@ def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationRes
         success=success,
     )
     if not success:
-        error_code = ValidationErrorCode.TRANSCRIPT_FAILED if ctx.job.media_type == DownloadMediaType.TRANSCRIPT else ValidationErrorCode.SUBTITLE_FAILED
-        validation.fail(error_code, f"Validation failed: {ctx.job.media_type.value.capitalize()} download failed to produce a sidecar file.")
+        error_code = (
+            ValidationErrorCode.TRANSCRIPT_FAILED
+            if ctx.job.media_type == DownloadMediaType.TRANSCRIPT
+            else ValidationErrorCode.SUBTITLE_FAILED
+        )
+        validation.fail(
+            error_code,
+            f"Validation failed: {ctx.job.media_type.value.capitalize()} download failed to produce a sidecar file.",
+        )
         return
 
     # Validate EMBED mode success
@@ -83,6 +96,6 @@ def validate_subtitles(ctx: ValidationContext, validation: DownloadValidationRes
             if not language_matches(lang, embedded):
                 validation.fail(
                     ValidationErrorCode.SUBTITLE_MISSING,
-                    f"Validation failed: Subtitle '{lang}' failed to embed in {ctx.primary_output.name if ctx.primary_output else 'output'}. Temporary files preserved."
+                    f"Validation failed: Subtitle '{lang}' failed to embed in {ctx.primary_output.name if ctx.primary_output else 'output'}. Temporary files preserved.",
                 )
                 return

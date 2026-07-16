@@ -122,7 +122,11 @@ def build_settings_wizard() -> Wizard:
                 key="subtitle_delay_mode",
                 title="Subtitle Delay",
                 choices=_SUBTITLE_DELAY_CHOICES,
-                default_index=_index_of(_SUBTITLE_DELAY_CHOICES, str(s.subtitle_delay_seconds), _index_of(_SUBTITLE_DELAY_CHOICES, "custom")),
+                default_index=_index_of(
+                    _SUBTITLE_DELAY_CHOICES,
+                    str(s.subtitle_delay_seconds),
+                    _index_of(_SUBTITLE_DELAY_CHOICES, "custom"),
+                ),
             ),
             NumericStep(
                 key="subtitle_delay_custom",

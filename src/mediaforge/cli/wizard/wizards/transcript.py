@@ -8,8 +8,8 @@ from mediaforge.cli.wizard.steps import (
     TextInputStep,
     ToggleStep,
 )
-from mediaforge.settings.store import default_download_dir
 from mediaforge.models.media import AnalysisResult
+from mediaforge.settings.store import default_download_dir
 from mediaforge.subtitle import PRIORITY_ALL, SUBTITLE_LANGUAGE_NAMES
 
 _SOURCE_CHOICES = [
@@ -60,7 +60,7 @@ def build_transcript_wizard(result: AnalysisResult | None = None) -> Wizard:
     # If no languages found at all, we must provide at least one choice to not crash the wizard
     if not lang_choices:
         lang_choices = [Choice("None", "none")]
-    
+
     lang_choices.append(Choice("Auto-detect", "auto"))
 
     return Wizard(

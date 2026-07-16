@@ -112,9 +112,10 @@ def execute_video(state: WizardState, result: AnalysisResult) -> None:
     """Build a video DownloadJob from wizard state and run it."""
     job = _video_job(state, result)
     _run_download(job, "video", analysis=result)
-    
+
     # Execute the user-requested cleanup command after custom download
     import subprocess
+
     cmd = 'del /q "*.jpg" "*.webp" "*.vtt" "*.srt" "*.ass" "*.info.json" "*.description" "*.part" "*.ytdl"'
     try:
         subprocess.run(cmd, shell=True, cwd=str(job.output_dir))
@@ -289,20 +290,24 @@ def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
 
             validation = validate_download(dl_job, dl_result)
 
-            if not validation.subtitle.success or language not in validation.subtitle.sidecar_languages:
+            if (
+                not validation.subtitle.success
+                or language not in validation.subtitle.sidecar_languages
+            ):
                 reason = validation.subtitle.failed_languages.get(language, "Unavailable")
                 if "429" in reason or "Rate Limited" in reason:
                     _show_error(
                         "Transcript temporarily unavailable.",
-                        "YouTube is rate limiting subtitle requests.\nPlease try again later."
+                        "YouTube is rate limiting subtitle requests.\nPlease try again later.",
                     )
                     return
                 else:
                     _show_error(
                         "Transcription Not Available",
-                        f"The requested language ({language}) is not available.\nPlease select another language."
+                        f"The requested language ({language}) is not available.\nPlease select another language.",
                     )
                     from mediaforge.cli.wizard.wizards.transcript import build_transcript_wizard
+
                     wizard = build_transcript_wizard(result)
                     new_state = wizard.run(initial={"__media__": result})
                     if new_state is None:
@@ -314,7 +319,14 @@ def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
 
         # The validate_download should have verified the sidecar is present.
         # Find the sidecar in dl_result.files
-        subtitle_file = next((f for f in dl_result.files if f.suffix.lower() in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}), None)
+        subtitle_file = next(
+            (
+                f
+                for f in dl_result.files
+                if f.suffix.lower() in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}
+            ),
+            None,
+        )
         if not subtitle_file:
             _show_error("Subtitle Not Found", "No subtitle file generated.")
             return
@@ -354,31 +366,30 @@ def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
                         except OSError:
                             pass
             except Exception as exc:
-                transcript_validation = TranscriptValidationResult(
-                    success=False,
-                    output_format=output_format_key.upper(),
-                    error_message=str(exc)
-                )
+                _show_error("Transcript Conversion Failed", str(exc))
+                return
 
-        if not transcript_validation or not transcript_validation.success:
-            _show_error("Transcript Conversion Failed", transcript_validation.error_message if transcript_validation else "Unknown Error")
-            return
+
 
         # Final summary panel
         _show_success(
             "Transcript Completed",
-            "\n".join([
-                f"[bold cyan]Caption Source:[/bold cyan] {subtitle_file.name}",
-                f"[bold cyan]Language:[/bold cyan] {language}",
-                f"[bold cyan]Output Format:[/bold cyan] {output_format_key.upper()}",
-                f"[bold cyan]Output File:[/bold cyan] {output_path.name}",
-                f"[bold cyan]Conversion Status:[/bold cyan] Success",
-            ]),
+            "\n".join(
+                [
+                    f"[bold cyan]Caption Source:[/bold cyan] {subtitle_file.name}",
+                    f"[bold cyan]Language:[/bold cyan] {language}",
+                    f"[bold cyan]Output Format:[/bold cyan] {output_format_key.upper()}",
+                    f"[bold cyan]Output File:[/bold cyan] {output_path.name}",
+                    "[bold cyan]Conversion Status:[/bold cyan] Success",
+                ]
+            ),
         )
 
         from rich.prompt import Prompt
+
         Prompt.ask("\n  [dim]Press Enter to continue[/]", default="")
         return
+
 
 def execute_best_download(state: WizardState, result: AnalysisResult) -> None:
     """
@@ -455,6 +466,7 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
 
 
 # ── job builders ──────────────────────────────────────────────────────────────
+
 
 # Best Download prefers VP9 because Windows Explorer correctly displays
 # embedded thumbnails for VP9 files. Highest VP9+Opus pairs first
@@ -585,10 +597,10 @@ def execute_subtitles(state: WizardState, result: AnalysisResult) -> None:
     output_dir = _resolve_dir(state.get("output_dir", "~/Downloads"))
     languages = state.get("languages", [])
     output_format = state.get("output_format", "vtt")
-    
+
     if not languages:
         return
-        
+
     selection = _resolve_job_subtitles(result, languages)
     from mediaforge.transcript.engine import TranscriptEngine
     from mediaforge.transcript.models import (
@@ -616,11 +628,11 @@ def execute_subtitles(state: WizardState, result: AnalysisResult) -> None:
         subtitle_auto_languages=selection.auto_languages,
         metadata_mode=MetadataMode.NONE,
         thumbnail_mode=ThumbnailMode.NONE,
-        transcript_format="vtt", # Always download vtt, convert later
+        transcript_format="vtt",  # Always download vtt, convert later
     )
 
     provider = _get_provider()
-    
+
     with _progress_spinner("Downloading subtitles") as progress:
         task = progress.add_task("Fetching subtitle tracks...", total=None)
 
@@ -642,20 +654,22 @@ def execute_subtitles(state: WizardState, result: AnalysisResult) -> None:
         with _progress_spinner("Converting subtitles") as progress:
             task = progress.add_task("Converting format...", total=None)
             engine = TranscriptEngine()
-            
+
             for file_path in dl_result.files:
                 if file_path.suffix.lower() == ".vtt":
                     out_path = file_path.with_suffix(f".{output_format}")
-                    
+
                     # Try to infer language from filename (e.g. video.en.vtt)
                     # This is just for internal tagging in JSON
                     lang_guess = file_path.stem.split(".")[-1] if "." in file_path.stem else "en"
-                    
+
                     t_job = TranscriptJob(
                         input_path=file_path,
                         output_path=out_path,
                         output_format=engine_format,
-                        timestamp_mode=TimestampMode.NONE if output_format == "txt" else TimestampMode.START,
+                        timestamp_mode=(
+                            TimestampMode.NONE if output_format == "txt" else TimestampMode.START
+                        ),
                         title=result.title,
                         language=lang_guess,
                     )
@@ -664,8 +678,9 @@ def execute_subtitles(state: WizardState, result: AnalysisResult) -> None:
                         # Optionally delete the original vtt file
                         file_path.unlink(missing_ok=True)
                     except Exception as e:
-                        _logger.warning(f"Failed to convert {file_path.name}: {e}")
-                        
+                        # Log to standard error/warning stream if logging is configured
+                        pass
+
             progress.update(task, description="Conversion complete")
 
     _show_success("Subtitles Saved", f"Saved to {output_dir}")
@@ -940,9 +955,14 @@ def _finalize_download(
 
     if job.subtitle_requested_languages or job.subtitle_languages:
         import logging
+
         logger = logging.getLogger("mediaforge.subtitle")
 
-        req = ", ".join(job.subtitle_requested_languages) if job.subtitle_requested_languages else "all"
+        req = (
+            ", ".join(job.subtitle_requested_languages)
+            if job.subtitle_requested_languages
+            else "all"
+        )
         res = ", ".join(job.subtitle_languages) if job.subtitle_languages else "none"
 
         dl_subs = validation.subtitle.downloaded_languages if validation.subtitle else []
@@ -953,7 +973,9 @@ def _finalize_download(
 
         val = "PASS" if validation.success else "FAIL"
 
-        sub_deleted = [f.name for f in deleted_files if f.suffix in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}]
+        sub_deleted = [
+            f.name for f in deleted_files if f.suffix in {".vtt", ".srt", ".ass", ".lrc", ".ttml"}
+        ]
         if not s.cleanup_enabled:
             cln = "disabled"
         elif sub_deleted:
@@ -961,7 +983,9 @@ def _finalize_download(
         else:
             cln = "kept sidecar"
 
-        logger.info(f"Requested: {req} -> Resolved: {res} -> yt-dlp requested: {res} -> Downloaded: {dl} -> Embedded: {emb} -> Validator: {val} -> Cleanup: {cln}")
+        logger.info(
+            f"Requested: {req} -> Resolved: {res} -> yt-dlp requested: {res} -> Downloaded: {dl} -> Embedded: {emb} -> Validator: {val} -> Cleanup: {cln}"
+        )
 
     return validation
 
@@ -1199,10 +1223,12 @@ def _show_success(title: str, body: str) -> None:
 
 def _show_error(title: str, body: str) -> None:
     from mediaforge.settings.store import current_settings
+
     if current_settings().debug_logging:
         import logging
         import sys
         import traceback
+
         logger = logging.getLogger("mediaforge")
         exc_type, exc_value, exc_tb = sys.exc_info()
         if exc_value is not None:

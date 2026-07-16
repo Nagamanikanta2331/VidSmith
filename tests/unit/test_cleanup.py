@@ -13,6 +13,7 @@ def temp_job_dir(tmp_path: Path):
     d.mkdir()
     return d
 
+
 def test_cleanup_enabled(temp_job_dir: Path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.VIDEO, output_dir=temp_job_dir)
     final_file = temp_job_dir / "video.mp4"
@@ -28,6 +29,7 @@ def test_cleanup_enabled(temp_job_dir: Path):
     assert final_file.exists()
     assert not part_file.exists()
 
+
 def test_cleanup_disabled(temp_job_dir: Path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.VIDEO, output_dir=temp_job_dir)
     final_file = temp_job_dir / "video.mp4"
@@ -42,6 +44,7 @@ def test_cleanup_disabled(temp_job_dir: Path):
 
     assert final_file.exists()
     assert part_file.exists()
+
 
 def test_keep_temp_files(temp_job_dir: Path):
     job = DownloadJob(url="http", media_type=DownloadMediaType.VIDEO, output_dir=temp_job_dir)

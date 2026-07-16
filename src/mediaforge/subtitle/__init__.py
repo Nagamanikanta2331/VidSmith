@@ -51,7 +51,7 @@ ISO_639_2: dict[str, str] = {
 }
 
 
-def language_matches(lang: str, candidates: "list[str] | set[str]") -> bool:
+def language_matches(lang: str, candidates: list[str] | set[str]) -> bool:
     """True when *lang* refers to the same language as any candidate code.
 
     Handles variants ("en-US" vs "en") and the two/three-letter code split
@@ -118,11 +118,7 @@ def resolve_subtitle_selection(
         # each resolved to its first manual variant when one exists.
         for base in SUPPORTED_SUBTITLE_LANGUAGES:
             manual = next(
-                (
-                    code
-                    for code in manual_codes
-                    if code.split("-")[0].strip().lower() == base
-                ),
+                (code for code in manual_codes if code.split("-")[0].strip().lower() == base),
                 None,
             )
             wanted.append(manual if manual is not None else base)

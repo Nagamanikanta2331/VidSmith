@@ -170,7 +170,7 @@ def analyze(url: str) -> AnalysisResult:
     if info is None:
         raise AnalysisError("yt-dlp returned no information for the URL.")
 
-    return _build_result(url , info)
+    return _build_result(url, info)
 
 
 def _build_result(url: str, info: dict) -> AnalysisResult:

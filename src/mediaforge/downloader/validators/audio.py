@@ -48,5 +48,10 @@ def validate_audio(ctx: ValidationContext, validation: DownloadValidationResult)
         if any(k in tags_lower for k in ["date", "year", "upload_date"]):
             audio_val.date_present = True
 
-        if audio_val.title_present or audio_val.artist_present or audio_val.album_present or audio_val.date_present:
+        if (
+            audio_val.title_present
+            or audio_val.artist_present
+            or audio_val.album_present
+            or audio_val.date_present
+        ):
             audio_val.metadata_present = True

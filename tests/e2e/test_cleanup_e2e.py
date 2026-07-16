@@ -2,12 +2,12 @@ import json
 from pathlib import Path
 
 import pytest
+from mediaforge.providers.results import DownloadResultStatus
 
 from mediaforge.downloader.cleanup import cleanup_job_artifacts
-from mediaforge.downloader.job import (
+from mediaforge.downloader.job import (  # type: ignore
     DownloadJob,
     DownloadMediaType,
-    JobStatus,
     MetadataMode,
     SubtitleMode,
     ThumbnailMode,
@@ -19,9 +19,11 @@ from mediaforge.providers.results import DownloadResult
 # We will create mock files that represent a completed download, run validation, and then cleanup.
 # Then assert that the primary output remains and temporary artifacts are removed.
 
+
 @pytest.fixture
 def temp_output(tmp_path: Path) -> Path:
     return tmp_path
+
 
 def test_e2e_cleanup_retains_primary_and_removes_temp(temp_output: Path) -> None:
     # 1. Create a mock media file and a mock temporary thumbnail
@@ -37,25 +39,26 @@ def test_e2e_cleanup_retains_primary_and_removes_temp(temp_output: Path) -> None
         output_dir=temp_output,
         thumbnail_mode=ThumbnailMode.EMBED,
         metadata_mode=MetadataMode.NONE,
-        subtitle_mode=SubtitleMode.NONE
+        subtitle_mode=SubtitleMode.NONE,
     )
 
     result = DownloadResult(
         job_id="test",
         url="https://youtube.com/watch?v=123",
-        status=JobStatus.COMPLETED,
+        status=DownloadResultStatus.COMPLETED,
         output_dir=temp_output,
-        files=[media_file, temp_thumb]
+        files=[media_file, temp_thumb],
     )
 
     # 2. Run Validation, mocking ffprobe to simulate successful embed
     from unittest import mock
+
     mock_ffprobe_data = {
         "streams": [
             {"codec_type": "video", "codec_name": "h264"},
-            {"codec_type": "video", "codec_name": "mjpeg", "disposition": {"attached_pic": 1}}
+            {"codec_type": "video", "codec_name": "mjpeg", "disposition": {"attached_pic": 1}},
         ],
-        "format": {"tags": {}}
+        "format": {"tags": {}},
     }
 
     with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
@@ -64,7 +67,7 @@ def test_e2e_cleanup_retains_primary_and_removes_temp(temp_output: Path) -> None
         validation = validate_download(job, result)
 
     assert validation.success is True
-    assert validation.thumbnail.embedded is True
+    assert validation.thumbnail.embedded is True  # type: ignore
 
     # 3. Run Cleanup
     cleanup_job_artifacts(job, result.files, validation)
@@ -75,6 +78,7 @@ def test_e2e_cleanup_retains_primary_and_removes_temp(temp_output: Path) -> None
 
     # 5. Assert Temp Artifacts Removed
     assert not temp_thumb.exists()
+
 
 def test_e2e_cleanup_retains_temp_on_failed_embed(temp_output: Path) -> None:
     # 1. Create a mock media file and a mock temporary thumbnail
@@ -90,25 +94,26 @@ def test_e2e_cleanup_retains_temp_on_failed_embed(temp_output: Path) -> None:
         output_dir=temp_output,
         thumbnail_mode=ThumbnailMode.EMBED,
         metadata_mode=MetadataMode.NONE,
-        subtitle_mode=SubtitleMode.NONE
+        subtitle_mode=SubtitleMode.NONE,
     )
 
     result = DownloadResult(
         job_id="test",
         url="https://youtube.com/watch?v=123",
-        status=JobStatus.COMPLETED,
+        status=DownloadResultStatus.COMPLETED,
         output_dir=temp_output,
-        files=[media_file, temp_thumb]
+        files=[media_file, temp_thumb],
     )
 
     # 2. Run Validation, mocking ffprobe to simulate FAILED embed
     from unittest import mock
+
     mock_ffprobe_data = {
         "streams": [
             {"codec_type": "video", "codec_name": "h264"}
             # NO attached_pic
         ],
-        "format": {"tags": {}}
+        "format": {"tags": {}},
     }
 
     with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
@@ -117,7 +122,7 @@ def test_e2e_cleanup_retains_temp_on_failed_embed(temp_output: Path) -> None:
         validation = validate_download(job, result)
 
     assert validation.success is False
-    assert validation.thumbnail.embedded is False
+    assert validation.thumbnail.embedded is False  # type: ignore
 
     # 3. Run Cleanup
     cleanup_job_artifacts(job, result.files, validation)

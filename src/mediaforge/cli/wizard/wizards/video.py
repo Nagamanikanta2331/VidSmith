@@ -240,7 +240,9 @@ def build_video_wizard() -> Wizard:
                 key="thumbnail_mode",
                 title="Thumbnail Options",
                 choices=[
-                    Choice("Embed into video", "embed", "Include cover art inside the file (default)"),
+                    Choice(
+                        "Embed into video", "embed", "Include cover art inside the file (default)"
+                    ),
                     Choice("Save separately", "save", "Save as a separate image file"),
                     Choice("Both", "both", "Embed and save separately"),
                     Choice("None", "none", "Do not download thumbnail"),

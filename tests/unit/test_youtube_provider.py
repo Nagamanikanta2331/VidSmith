@@ -128,6 +128,7 @@ class TestResultMetadata:
         assert "hdr" not in metadata
         assert "audio_bitrate" not in metadata
 
+
 class TestNormalization:
     def setup_method(self) -> None:
         self.provider = YouTubeProvider()

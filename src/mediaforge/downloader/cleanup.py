@@ -14,8 +14,6 @@ from mediaforge.downloader.validator import DownloadValidationResult
 _NO_THUMBNAIL_EMBED = {".ts", ".webm", ".avi", ".flv", ".wav"}
 
 
-
-
 def cleanup_job_artifacts(
     job: DownloadJob,
     final_files: list[Path],
@@ -43,8 +41,14 @@ def cleanup_job_artifacts(
 
         base_dir = final_file.parent
         base_name = final_file.stem
-        embedded_subs = set(validation.subtitle.embedded_languages) if validation and validation.subtitle else set()
-        thumb_embedded = validation.thumbnail.embedded if validation and validation.thumbnail else False
+        embedded_subs = (
+            set(validation.subtitle.embedded_languages)
+            if validation and validation.subtitle
+            else set()
+        )
+        thumb_embedded = (
+            validation.thumbnail.embedded if validation and validation.thumbnail else False
+        )
 
         try:
             for item in base_dir.iterdir():
@@ -76,7 +80,11 @@ def cleanup_job_artifacts(
                                 deleted_files.append(item)
                             except OSError:
                                 pass
-                        elif job.subtitle_mode in {SubtitleMode.AUTO, SubtitleMode.MANUAL, SubtitleMode.BOTH}:
+                        elif job.subtitle_mode in {
+                            SubtitleMode.AUTO,
+                            SubtitleMode.MANUAL,
+                            SubtitleMode.BOTH,
+                        }:
                             # Only delete if it actually got embedded. ffprobe
                             # reports three-letter codes (hin/tel/mal…) while
                             # the filename carries the requested two-letter

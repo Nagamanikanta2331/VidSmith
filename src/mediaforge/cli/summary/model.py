@@ -9,6 +9,7 @@ class SummaryArtifactType(Enum):
     SUBTITLE = auto()
     TRANSCRIPT = auto()
 
+
 @dataclass
 class SummaryModel:
     title: str | None = None

@@ -121,9 +121,7 @@ def _backup_corrupt(path: Path, exc: Exception) -> None:
         note = f" Backed up to {backup.name}."
     except OSError:
         note = ""
-    err_console.print(
-        f"[warning]Could not read settings ({exc}); using defaults.{note}[/]"
-    )
+    err_console.print(f"[warning]Could not read settings ({exc}); using defaults.{note}[/]")
 
 
 def save_settings(settings: AppSettings) -> None:

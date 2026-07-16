@@ -150,7 +150,11 @@ def test_cleanup_manager() -> None:
             SubtitleValidationResult,
             ThumbnailValidationResult,
         )
-        validation = DownloadValidationResult(subtitle=SubtitleValidationResult(embedded_languages=["en"]), thumbnail=ThumbnailValidationResult(embedded=True))
+
+        validation = DownloadValidationResult(
+            subtitle=SubtitleValidationResult(embedded_languages=["en"]),
+            thumbnail=ThumbnailValidationResult(embedded=True),
+        )
         cleanup_job_artifacts(job, [media_file], validation=validation)
 
         # Assert cleanup

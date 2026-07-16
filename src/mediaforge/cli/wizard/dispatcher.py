@@ -89,12 +89,13 @@ def dispatch_wizard(action: str, result: AnalysisResult | None = None) -> None:
         return
 
     import inspect
+
     sig = inspect.signature(factory)
     if "result" in sig.parameters:
-        wizard = factory(result=result)
+        wizard = factory(result=result)  # type: ignore
     else:
         wizard = factory()
-        
+
     initial: dict = {}
     if result is not None:
         initial["__media__"] = result

@@ -12,7 +12,6 @@ from mediaforge.models.media import AnalysisResult
 from mediaforge.settings.store import default_download_dir
 from mediaforge.subtitle import PRIORITY_ALL, SUBTITLE_LANGUAGE_NAMES
 
-
 _FORMAT_CHOICES = [
     Choice("VTT", "vtt", "WebVTT — web standard"),
     Choice("SRT", "srt", "SubRip — widely supported"),

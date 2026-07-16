@@ -23,8 +23,9 @@ def dummy_result(tmp_path: Path):
         status=DownloadResultStatus.COMPLETED,
         output_dir=tmp_path,
         files=[media_file],
-        media_type="video"
+        media_type="video",
     )
+
 
 def test_video_job_routing(dummy_result):
     job = DownloadJob(
@@ -40,12 +41,13 @@ def test_video_job_routing(dummy_result):
 
         assert val.success
 
+
 def test_transcript_job_routing(dummy_result):
     job = DownloadJob(
         url="https://youtube.com/watch?v=123",
         media_type=DownloadMediaType.TRANSCRIPT,
         output_dir=dummy_result.output_dir,
-        subtitle_mode=SubtitleMode.BOTH
+        subtitle_mode=SubtitleMode.BOTH,
     )
 
     with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
@@ -57,12 +59,13 @@ def test_transcript_job_routing(dummy_result):
         assert not val.success
         assert val.error_code == "TRANSCRIPT_FAILED"
 
+
 def test_subtitle_job_routing(dummy_result):
     job = DownloadJob(
         url="https://youtube.com/watch?v=123",
         media_type=DownloadMediaType.SUBTITLE,
         output_dir=dummy_result.output_dir,
-        subtitle_mode=SubtitleMode.BOTH
+        subtitle_mode=SubtitleMode.BOTH,
     )
 
     with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
@@ -74,12 +77,13 @@ def test_subtitle_job_routing(dummy_result):
         assert not val.success
         assert val.error_code == "SUBTITLE_FAILED"
 
+
 def test_thumbnail_job_routing(dummy_result):
     job = DownloadJob(
         url="https://youtube.com/watch?v=123",
         media_type=DownloadMediaType.THUMBNAIL,
         output_dir=dummy_result.output_dir,
-        thumbnail_mode=ThumbnailMode.SAVE
+        thumbnail_mode=ThumbnailMode.SAVE,
     )
 
     with patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:

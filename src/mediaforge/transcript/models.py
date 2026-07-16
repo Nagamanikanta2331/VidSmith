@@ -76,6 +76,7 @@ class TranscriptResult:
     segment_count: int
     title: str
 
+
 @dataclass(frozen=True, slots=True)
 class TranscriptValidationResult:
     """Result of transcript conversion phase."""

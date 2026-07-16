@@ -7,20 +7,21 @@ from mediaforge.providers.youtube import YouTubeProvider
 from mediaforge.subtitle import resolve_subtitle_selection
 
 
-@pytest.mark.parametrize("exact_id", [
-    "en",
-    "hi-IN",
-    "en-US",
-    "te",
-    "fr",
-])
+@pytest.mark.parametrize(
+    "exact_id",
+    [
+        "en",
+        "hi-IN",
+        "en-US",
+        "te",
+        "fr",
+    ],
+)
 def test_subtitle_id_passed_exactly_through_pipeline(exact_id):
     # 1. Test resolve_subtitle_selection (simulates job builder resolving available tracks)
     # Assume the exact id is available in manual tracks
     selection = resolve_subtitle_selection(
-        manual_codes=[exact_id],
-        auto_codes=[],
-        requested=[exact_id]
+        manual_codes=[exact_id], auto_codes=[], requested=[exact_id]
     )
 
     assert exact_id in selection.codes
