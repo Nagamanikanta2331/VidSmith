@@ -796,65 +796,9 @@ def _finalize_download(
     file, raise ``DownloadError`` if it failed, then remove temporary artifacts
     (passing the validation so only successfully-embedded sidecars are deleted).
     """
-    import logging
-
-    from mediaforge.downloader.models import MetadataMode
-    from mediaforge.downloader.validator import _get_primary_output
-    from mediaforge.processing.ffmpeg import FFmpegProcessor
-    from mediaforge.processing.models import (
-        MediaMetadata,
-        ProcessingJob,
-        ProcessingOperation,
-        SubtitleDisposition,
-        SubtitleInput,
-    )
     from mediaforge.settings.store import current_settings
-    from mediaforge.subtitle import SUBTITLE_LANGUAGE_NAMES
 
     s = current_settings()
-    primary_file = _get_primary_output(dl_result.files)
-
-    if primary_file and primary_file.exists():
-        operations = []
-        subtitles = []
-        metadata = None
-
-        if job.subtitle_selection and job.subtitle_selection.codes:
-            for f in dl_result.files:
-                if f.suffix.lower() == ".vtt" and f.exists():
-                    lang = f.suffixes[-2].lstrip(".") if len(f.suffixes) > 1 else "en"
-                    subtitles.append(SubtitleInput(
-                        path=f,
-                        language=lang,
-                        title=SUBTITLE_LANGUAGE_NAMES.get(lang, lang.upper()),
-                        disposition=SubtitleDisposition.OPTIONAL
-                    ))
-            if subtitles:
-                operations.append(ProcessingOperation.EMBED_SUBTITLES)
-
-        if job.metadata_mode == MetadataMode.EMBED and dl_result.metadata:
-            metadata = MediaMetadata(
-                title=dl_result.metadata.get("title", ""),
-                uploader=dl_result.metadata.get("uploader", ""),
-                description=dl_result.metadata.get("description", ""),
-                upload_date=dl_result.metadata.get("upload_date", ""),
-            )
-            operations.append(ProcessingOperation.EMBED_METADATA)
-
-        if operations:
-            processor = FFmpegProcessor(ffmpeg_path=s.ffmpeg_path_override or "ffmpeg")
-            p_job = ProcessingJob(
-                input_path=primary_file,
-                output_path=primary_file,
-                operations=operations,
-                subtitles=subtitles,
-                metadata=metadata,
-                overwrite=True
-            )
-            try:
-                processor.process(p_job)
-            except Exception as e:
-                logging.getLogger("mediaforge.processing").warning(f"FFmpeg processing failed: {e}")
 
     validation = validate_download(job, dl_result)
     if not validation.success:

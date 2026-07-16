@@ -15,6 +15,7 @@ from mediaforge.downloader.job import (
     DownloadJob,
     DownloadMediaType,
     JobStatus,
+    MetadataMode,
     SubtitleMode,
     ThumbnailMode,
 )
@@ -363,10 +364,10 @@ class YouTubeProvider(Provider):
             "writesubtitles": self._writes_manual_subtitles(job),
             "writeautomaticsub": self._writes_auto_subtitles(job),
             "subtitleslangs": self._subtitle_languages(job),
-            "embedsubtitles": False,  # Phase C: Handled by FFmpegProcessor
+            "embedsubtitles": self._embeds_subtitles(job),
             "writethumbnail": self._writes_thumbnail(job),
             "embedthumbnail": self._embeds_thumbnail(job),
-            "addmetadata": False,  # Phase C: Handled by FFmpegProcessor
+            "addmetadata": job.metadata_mode == MetadataMode.EMBED,
             "embed_info_json": False,
             "writeinfojson": False,
             "postprocessors": self._postprocessors(job),
@@ -379,7 +380,7 @@ class YouTubeProvider(Provider):
             "retries": 10,
             "fragment_retries": 10,
             "extractor_retries": 3,
-            "file_access_retries": 1,
+            "file_access_retries": 3,
             "continuedl": True,
             "buffersize": 1024 * 1024,
             "concurrent_fragment_downloads": 5,
@@ -391,9 +392,6 @@ class YouTubeProvider(Provider):
             "ignoreerrors": "only_download",
             # Throttling each subtitle request keeps YouTube from rate-limiting
             "sleep_interval_subtitles": int(self.config.get("subtitle_sleep_interval", 1)),
-            # Implement 429 retry: Sleep for subtitle_delay_seconds before retrying.
-            # file_access_retries=1 limits it to exactly one retry.
-            "retry_sleep": {"http": int(self.config.get("subtitle_sleep_interval", 125))},
         }
         # Enable a non-default JS runtime (node/bun) when present so YouTube does
         # not silently drop formats; when only deno exists yt-dlp already uses it.
@@ -417,8 +415,26 @@ class YouTubeProvider(Provider):
     def _postprocessors(self, job: DownloadJob) -> list[dict[str, Any]]:
         postprocessors: list[dict[str, Any]] = []
 
-        # Phase C: Subtitles and Metadata embedding are now handled by FFmpegProcessor
-        # in executor._finalize_download, not yt-dlp.
+        # Subtitle embedding is handled by yt-dlp's FFmpegEmbedSubtitle, which
+        # muxes the written sidecar tracks into the final container.
+        if self._embeds_subtitles(job):
+            postprocessors.append(
+                {
+                    "key": "FFmpegEmbedSubtitle",
+                    "already_have_subtitle": True,
+                }
+            )
+
+        # Metadata + chapters are embedded by yt-dlp's FFmpegMetadata.
+        if job.metadata_mode == MetadataMode.EMBED:
+            postprocessors.append(
+                {
+                    "key": "FFmpegMetadata",
+                    "add_metadata": True,
+                    "add_chapters": True,
+                    "add_infojson": False,
+                }
+            )
 
         if self._embeds_thumbnail(job):
             postprocessors.append(
