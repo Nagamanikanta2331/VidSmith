@@ -368,8 +368,6 @@ def execute_transcript(state: WizardState, result: AnalysisResult) -> None:
                 _show_error("Transcript Conversion Failed", str(exc))
                 return
 
-
-
         # Final summary panel
         _show_success(
             "Transcript Completed",

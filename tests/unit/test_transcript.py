@@ -153,23 +153,32 @@ def test_execute_transcript_http_429(
 @mock.patch("mediaforge.cli.executor._get_provider")
 @mock.patch("mediaforge.cli.executor.validate_download")
 @mock.patch("mediaforge.cli.executor._show_error")
-def test_execute_transcript_unavailable(mock_show_error, mock_validate, mock_get_provider, mock_wizard_builder, state, analysis_result, tmp_path):
+def test_execute_transcript_unavailable(
+    mock_show_error,
+    mock_validate,
+    mock_get_provider,
+    mock_wizard_builder,
+    state,
+    analysis_result,
+    tmp_path,
+):
     state["output_dir"] = str(tmp_path)
 
     mock_provider = mock.Mock()
     mock_get_provider.return_value = mock_provider
     mock_provider.download_transcript.return_value = DownloadResult(
-        job_id="job123", url=analysis_result.url, status=DownloadResultStatus.COMPLETED,
-        output_dir=tmp_path, media_type="transcript", files=[]
+        job_id="job123",
+        url=analysis_result.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        media_type="transcript",
+        files=[],
     )
 
     # Unavailable
     mock_validate.return_value = DownloadValidationResult(
-        subtitle=SubtitleValidationResult(
-            failed_languages={"en": "Unavailable"},
-            success=False
-        ),
-        success=False
+        subtitle=SubtitleValidationResult(failed_languages={"en": "Unavailable"}, success=False),
+        success=False,
     )
 
     mock_wizard_builder.return_value.run.return_value = None
@@ -178,7 +187,10 @@ def test_execute_transcript_unavailable(mock_show_error, mock_validate, mock_get
 
     mock_show_error.assert_called_once()
     assert mock_show_error.call_args[0][0] == "Transcription Not Available"
-    assert mock_show_error.call_args[0][1] == "The requested language (en) is not available.\nPlease select another language."
+    assert (
+        mock_show_error.call_args[0][1]
+        == "The requested language (en) is not available.\nPlease select another language."
+    )
 
 
 @mock.patch("mediaforge.cli.executor._get_provider")

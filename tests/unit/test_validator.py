@@ -131,7 +131,11 @@ def test_validator_subtitle_only_success(temp_dir: Path) -> None:
     en_sub.write_text("dummy")
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=temp_dir, files=[en_sub]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=temp_dir,
+        files=[en_sub],
     )
 
     with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
@@ -153,7 +157,11 @@ def test_validator_subtitle_only_failure_when_zero_files(temp_dir: Path) -> None
     )
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=temp_dir, files=[]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=temp_dir,
+        files=[],
     )
 
     with mock.patch("mediaforge.downloader.validators.context.subprocess.run") as mock_run:
@@ -181,7 +189,11 @@ def test_validate_audio_mp3_artwork(mock_run, tmp_path):
     )
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
@@ -201,7 +213,11 @@ def test_validate_audio_mp3_artwork_missing(mock_run, tmp_path):
     )
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
@@ -225,7 +241,11 @@ def test_validate_audio_m4a_artwork(mock_run, tmp_path):
     )
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
@@ -241,7 +261,11 @@ def test_validate_audio_unsupported_artwork(mock_run, tmp_path):
     mock_run.return_value = MagicMock(stdout=json.dumps({"streams": [], "format": {}}))
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
@@ -266,7 +290,11 @@ def test_validate_audio_metadata_complete(mock_run, tmp_path):
     )
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
@@ -288,7 +316,11 @@ def test_validate_audio_metadata_partially_missing(mock_run, tmp_path):
     )
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
@@ -308,10 +340,16 @@ def test_validate_audio_validation_failures(mock_run, tmp_path):
     mock_run.side_effect = Exception("ffprobe error")
 
     result = DownloadResult(
-        job_id="test", url=job.url, status=DownloadResultStatus.COMPLETED, output_dir=tmp_path, files=[primary]
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[primary],
     )
     val = validate_download(job, result)
 
     # Should not crash, status should be what was initialized
-    assert val.audio.artwork_status == "Missing"  # since mp3 is supported but check failed  # type: ignore
+    assert (
+        val.audio.artwork_status == "Missing"
+    )  # since mp3 is supported but check failed  # type: ignore
     assert val.audio.metadata_present is False  # type: ignore
