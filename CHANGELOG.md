@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] - 2026-07-16
+
+Playlist speed and completeness release. Update with `pip install --upgrade vidsmith`.
 
 ### Added
 - **Parallel playlist downloads.** Playlist items now actually download simultaneously — Best Download uses the `max_concurrency` setting (default 3), and Custom Playlist honors the wizard's "Parallel Downloads" answer (previously collected but ignored; items always downloaded one at a time). Each worker uses its own yt-dlp instance; per-item behavior is unchanged.
@@ -11,6 +13,9 @@
 - **Playlist downloads now include subtitles.** Both Best Download and Custom Playlist video items request the supported subtitle set (te/hi/ta/en, manual over auto) and embed whatever exists; unavailable languages are skipped silently.
 - **Playlist failure counting.** Items whose media downloaded fine but failed a post-processing check (e.g. thumbnail embedding) are no longer counted as failed downloads — they complete and are listed under "Warnings (media saved, embed check failed)".
 - **Playlist failure messages.** The constant "download failed after N attempts:" prefix is stripped and the visible reason budget raised from 80 to 160 characters, so the actual yt-dlp error is readable in the summary panel.
+
+### Documentation
+- README: playlist and Shorts feature sections, updated screenshot, update/uninstall instructions.
 
 ## [1.0.0] - 2026-07-16
 

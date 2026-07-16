@@ -16,3 +16,13 @@ These are documented quirks and intentional behaviors of the system. Do NOT try 
 - **Symptom:** Transcript extraction fails if language is unavailable.
 - **Cause:** Depends entirely on subtitle availability (manual or auto) provided by YouTube.
 - **Decision:** The transcript extraction wizard now intercepts "Unavailable" languages and automatically loops back, prompting the user to select an alternative language instead of crashing. Unavailable subtitles are not errors; they are data constraints.
+
+## Playlist Subtitle Availability Is Unknown Up Front
+- **Symptom:** Playlist items request te/hi/ta/en subtitles even for videos that have none.
+- **Cause:** Playlist analysis is flat (`extract_flat`) for speed — fetching per-item metadata for a 43-item playlist would multiply analysis time by the item count.
+- **Decision:** Intentional. The supported set is requested blindly; `ignoreerrors=True` and the subtitle validator downgrade missing languages to "unavailable" warnings. Do not switch to per-item analysis to "fix" this.
+
+## Playlist Parallelism Is Capped at 5
+- **Symptom:** The wizard allows at most 5 simultaneous downloads.
+- **Cause:** More parallel connections raise YouTube's rate-limiting/429 risk sharply and saturate most residential bandwidth anyway.
+- **Decision:** Intentional cap (`_MAX_CONCURRENCY = 5` in the playlist wizard). Raise only with evidence it's safe.

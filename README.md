@@ -27,43 +27,53 @@ __     ___     _ ____            _ _   _
 
 ## Features
 
-- ⭐ **Best Download** — one keypress, zero configuration. Selects the exact
-  VP9+Opus streams (`313+251/308+251/303+251/302+251`) and merges to MKV
-  without transcoding.
+- ⭐ **Best Download** — one keypress, zero configuration. Picks the best
+  available streams (VP9 preferred) and merges to MP4 without transcoding,
+  with subtitles, chapters, metadata, and cover art embedded.
+- 📚 **Playlists — parallel & complete** — download entire playlists (or a
+  custom range) with **up to 5 items downloading simultaneously**, per-item
+  subtitles embedded, live progress, and honest completed/failed/warning
+  reporting.
+- 📱 **Shorts** — paste a `youtube.com/shorts/...` link and it just works:
+  same menu, same embedding, vertical video handled natively.
 - 🎯 **Custom wizards** — quality, container (MP4/MKV/WebM), subtitles, audio
   format, playlists — all through guided multi-step prompts.
+- 💬 **Professional subtitle handling** — Telugu, Hindi, Tamil, and English
+  (manual preferred over auto-generated) requested for every download,
+  including each playlist item; missing languages are skipped silently and
+  failures (e.g. HTTP 429) are reported per-language, never fatal.
 - 🎵 **Audio mode** — MP3, M4A, FLAC, Opus, WAV with metadata and cover art.
 - 📝 **Transcripts** — download captions and convert to TXT, Markdown, or JSON.
-- 💬 **Professional subtitle handling** — many languages at once; failures
-  (e.g. HTTP 429) are reported per-language, never fatal.
 - 🖼️ **Honest thumbnail embedding** — tells you exactly what each container
   supports instead of failing silently.
 - 📊 **Rich progress + summary** — live speed/ETA, then a full report:
-  resolution, FPS, HDR, codecs, bitrates, file size, subtitle outcome.
+  resolution, FPS, HDR, codecs, bitrates, file size, per-language subtitle
+  outcome.
+- ⏩ **Continue-or-switch prompt** — after every download: press Enter to keep
+  working with the same video, `n` to paste a new URL, `q` to quit.
 - 🩺 **`vidsmith doctor`** — one command to diagnose your environment.
 - ⏯️ **Resume support** — interrupted downloads continue from `.part` files.
 
 ### Screenshot
 
 ```text
-╭──────────────────── ✅ Best Download Complete ────────────────────╮
+╭──────────────────── ✓ Best Download Complete ─────────────────────╮
 │                                                                   │
-│   Video Name       Survive 30 Days Chained To A Stranger…         │
-│   Channel          MrBeast                                        │
-│   Container        MKV                                            │
-│   Resolution       1920x1080          FPS  30 fps                 │
-│   Video Codec      vp9                Video Bitrate  1490 kbps    │
-│   Audio Codec      opus               Audio Bitrate  128 kbps     │
-│   File Size        406.2 MB           Download Time  2m 43s       │
+│   Video Name             Survive 30 Days Chained To A Stranger…   │
+│   Channel                MrBeast                                  │
+│   Container              MP4                                      │
+│   Resolution             1920x1080       FPS  30 fps              │
+│   Video Codec            vp9             Video Bitrate  1490 kbps │
+│   Audio Codec            mp4a.40.2       Audio Bitrate  130 kbps  │
+│   File Size              406.2 MB        Download Time  2m 43s    │
 │                                                                   │
-│   ✓ Metadata Embedded                                             │
-│   ✓ Thumbnail Embedded                                            │
-│      Supported by MKV container                                   │
-│   ✓ Resume Supported                                              │
-│                                                                   │
-│   Primary Subtitle       English                                  │
-│   Other Subtitles        23 languages                             │
-│   Subtitles Downloaded   24                                       │
+│   Metadata               ✓ Embedded                               │
+│   Thumbnail              ✓ Embedded                               │
+│   Resume                 ✓ Supported                              │
+│   Telugu (te) Subtitle   ✓ Embedded                               │
+│   Hindi (hi) Subtitle    ✓ Embedded                               │
+│   Tamil (ta) Subtitle    ✓ Embedded                               │
+│   English (en) Subtitle  ✓ Embedded                               │
 ╰───────────────────────────────────────────────────────────────────╯
 ```
 
@@ -88,6 +98,38 @@ git clone https://github.com/Nagamanikanta2331/VidSmith.git
 cd VidSmith
 pip install -e .
 ```
+
+### Updating
+
+Get the newest release from PyPI:
+
+```bash
+pip install --upgrade vidsmith
+```
+
+Or update straight from GitHub (picks up changes as soon as they are pushed,
+without waiting for a PyPI release):
+
+```bash
+pip install --upgrade --force-reinstall --no-deps git+https://github.com/Nagamanikanta2331/VidSmith.git
+```
+
+Check your installed version anytime:
+
+```bash
+vidsmith --version
+```
+
+### Uninstalling
+
+```bash
+pip uninstall vidsmith
+```
+
+This removes the package and the `vidsmith` command. Your downloaded media is
+never touched. To also remove saved settings and logs, delete the config
+folder: `%APPDATA%\VidSmith` on Windows, or `~/.config/vidsmith` on
+Linux/macOS.
 
 ### Prerequisites
 - **Python 3.12+**
@@ -138,6 +180,8 @@ you got.
 | `vidsmith doctor` | Diagnose environment (tools, network, YouTube access) |
 | `vidsmith doctor --no-network` | Same, skipping connectivity checks |
 | `vidsmith --version` | Print the version |
+| `pip install --upgrade vidsmith` | Update to the latest release |
+| `pip uninstall vidsmith` | Remove VidSmith |
 
 ---
 
@@ -164,6 +208,33 @@ container (MP4/MKV/WebM) → subtitles → confirm.
 
 > Choosing MP4 restricts streams to MP4-compatible codecs for maximum device
 > compatibility. Choose MKV for maximum quality.
+
+### Playlists
+
+Paste a playlist URL and the menu switches to playlist actions:
+
+- **⭐ Best Download** — every item gets the full Best Download treatment
+  (best streams, MP4, subtitles, thumbnail, metadata, chapters), downloading
+  **several items in parallel** (your `max_concurrency` setting, default 3).
+- **Custom Playlist Download** — guided wizard: item selection (all / range
+  like `1-10` / specific items) → video or audio → quality → **subtitles**
+  (Telugu/Hindi/Tamil/English multi-select; English is always included as a
+  mandatory fallback) → output directory → **parallel downloads (1–5)** →
+  confirm.
+- **Audio / subtitles / thumbnails for the whole playlist** — dedicated menu
+  entries.
+
+The summary panel reports completed/failed counts honestly: an item whose
+media downloaded fine but whose thumbnail or subtitle embed check failed is
+counted as **completed with a warning**, never as a failed download — and
+failure reasons are shown in full, not truncated into uselessness.
+
+### Shorts
+
+YouTube Shorts URLs (`youtube.com/shorts/...`) are fully supported — paste
+one and you get the same menu and the same treatment as a regular video:
+best streams (AV1/VP9 vertical), embedded subtitles in all supported
+languages, thumbnail, and metadata.
 
 ### Audio
 
@@ -193,7 +264,10 @@ tune the provider via the `YouTubeProvider(config=...)` API:
 | `ffmpeg_location` | auto | Explicit FFmpeg path |
 | `metadata_cache_size` | `16` | Analyzed-URL cache entries |
 
-Persistent user settings (config file) are on the roadmap.
+Persistent user settings live in the in-app **Settings** menu (press `s`):
+default quality, audio format, output directory, parallel downloads
+(`max_concurrency`), cleanup behavior, and more — saved to the `VidSmith`
+config directory automatically.
 
 ---
 
@@ -246,15 +320,16 @@ No. Streams are merged, never transcoded (except explicit audio-format
 conversion in Audio mode).
 
 **Playlists?**
-Yes — Best Download and the custom wizard both support playlists with
-per-item progress and failure reporting.
+Yes — Best Download and the custom wizard both support playlists, with items
+downloading **in parallel** (up to 5 at a time), per-item subtitle embedding,
+live progress, and honest per-item failure/warning reporting. Shorts links
+work too.
 
 ---
 
 ## Roadmap
 
-- Persistent settings file (`~/.config/vidsmith/`)
-- Subtitle/thumbnail embedding options in the custom wizard
+- Subtitle/thumbnail embedding options in the custom video wizard
 - Non-interactive one-shot mode (`vidsmith <url> --best`)
 - Textual full-screen TUI
 - Additional providers behind the existing `Provider` ABC

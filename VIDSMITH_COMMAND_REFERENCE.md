@@ -104,6 +104,21 @@ VIDEO_URL
 yt-dlp ^
 -f "bv*+ba/b" ^
 --merge-output-format mp4 ^
+--write-subs ^
+--write-auto-subs ^
+--sub-langs "te,hi,ta,en" ^
+--embed-subs ^
 -o "%(playlist_index)03d - %(title)s.%(ext)s"
 ```
-**Dynamic Fields:** Output template (`-o`), concurrency, resume state.
+**Dynamic Fields:** Output template (`-o`), concurrency, resume state, subtitle languages.
+
+**Notes:**
+- Playlist analysis is flat (`extract_flat`), so per-item caption availability
+  is unknown — the supported subtitle set (te/hi/ta/en) is requested blindly
+  per item; unavailable languages are skipped as warnings (`--ignore-errors`).
+- In the Custom Playlist wizard, English is a **mandatory fallback**: it is
+  requested even when deselected.
+- Items download in parallel via a thread pool (Best Download: the
+  `max_concurrency` setting, default 3; Custom Playlist: the wizard's
+  "Parallel Downloads" answer, 1–5). Each worker owns its own `YoutubeDL`
+  instance.
