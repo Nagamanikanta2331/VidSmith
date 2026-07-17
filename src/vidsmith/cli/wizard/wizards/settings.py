@@ -50,6 +50,16 @@ _SUBTITLE_DELAY_CHOICES = [
     Choice("Custom", "custom"),
 ]
 
+_COOKIES_BROWSER_CHOICES = [
+    Choice("Off", "", "Never read browser cookies (default)"),
+    Choice("Chrome", "chrome", "Use YouTube login from Chrome for private videos"),
+    Choice("Edge", "edge", "Use YouTube login from Edge for private videos"),
+    Choice("Firefox", "firefox", "Use YouTube login from Firefox for private videos"),
+    Choice("Brave", "brave", "Use YouTube login from Brave for private videos"),
+    Choice("Opera", "opera", "Use YouTube login from Opera for private videos"),
+    Choice("Vivaldi", "vivaldi", "Use YouTube login from Vivaldi for private videos"),
+]
+
 _SUMMARY = [
     ("default_output_directory", "Default Save Location"),
     ("default_container", "Default Container"),
@@ -61,6 +71,7 @@ _SUMMARY = [
     ("keep_temp_files", "Keep Temp Files"),
     ("node_path_override", "Node.js Path"),
     ("ffmpeg_path_override", "FFmpeg Path"),
+    ("cookies_from_browser", "Browser Cookies"),
     ("max_concurrency", "Max Parallel Downloads"),
     ("debug_logging", "Debug Logging"),
 ]
@@ -174,6 +185,12 @@ def build_settings_wizard() -> Wizard:
                 validator=_optional_path_validator,
                 allow_empty=True,
                 description="Point at a specific ffmpeg binary, or leave blank to use PATH.",
+            ),
+            ChoiceStep(
+                key="cookies_from_browser",
+                title="Browser Cookies",
+                choices=_COOKIES_BROWSER_CHOICES,
+                default_index=_index_of(_COOKIES_BROWSER_CHOICES, s.cookies_from_browser),
             ),
             NumericStep(
                 key="max_concurrency",

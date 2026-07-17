@@ -78,6 +78,26 @@ def test_save_and_load_settings(mock_settings_dir: Path):
     assert loaded.subtitle_delay_seconds == 999
 
 
+def test_cookies_from_browser_round_trip(mock_settings_dir: Path):
+    s = AppSettings(cookies_from_browser="chrome")
+    save_settings(s)
+
+    data = json.loads(settings_path().read_text())
+    assert data["settings"]["cookies_from_browser"] == "chrome"
+    assert load_settings().cookies_from_browser == "chrome"
+
+
+def test_settings_file_without_cookies_key_defaults_off(mock_settings_dir: Path):
+    """Files written before the cookies feature load with it disabled."""
+    sp = settings_path()
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    sp.write_text(json.dumps({"version": 1, "settings": {"default_container": "mkv"}}))
+
+    loaded = load_settings()
+    assert loaded.cookies_from_browser == ""
+    assert loaded.default_container == "mkv"
+
+
 def test_corrupt_settings(mock_settings_dir: Path):
     sp = settings_path()
     sp.parent.mkdir(parents=True, exist_ok=True)

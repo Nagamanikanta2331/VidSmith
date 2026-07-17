@@ -29,6 +29,9 @@ class AppSettings:
     node_path_override: str = ""
     ffmpeg_path_override: str = ""
     debug_logging: bool = False
+    # Browser to import YouTube cookies from ("" → disabled). Lets yt-dlp
+    # download private videos the signed-in account has access to.
+    cookies_from_browser: str = ""
 
 
 # Module-level default instance

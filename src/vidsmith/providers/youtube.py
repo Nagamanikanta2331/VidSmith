@@ -263,6 +263,9 @@ class YouTubeProvider(Provider):
             "skip_download": True,
             "simulate": True,
             "extract_flat": "in_playlist",
+            # Cookies apply to analysis too, so private videos the user can
+            # access resolve instead of erroring at the analyze step.
+            **self._cookies_option(),
         }
         return options
 
@@ -292,8 +295,8 @@ class YouTubeProvider(Provider):
 
         # One-line record of what we actually ask yt-dlp for — the exact data
         # needed to reproduce a VidSmith download with the official CLI.
-        # Cookies are logged even while always None so a diff against a manual
-        # `--cookies-from-browser` CLI run makes the gap obvious.
+        # Cookies are logged even when None so a diff against a manual
+        # `--cookies-from-browser` CLI run makes any gap obvious.
         _logger.debug(
             "yt-dlp run: url=%s format=%r js_runtimes=%r subtitleslangs=%r merge=%r "
             "cookiesfrombrowser=%r cookiefile=%r",
@@ -878,7 +881,19 @@ class YouTubeProvider(Provider):
         js_runtimes = js_runtimes_option(self.config.get("node_path_override", ""))
         if js_runtimes:
             defaults["js_runtimes"] = js_runtimes
+        defaults |= self._cookies_option()
         return defaults | self._ffmpeg_location_option()
+
+    def _cookies_option(self) -> dict[str, Any]:
+        """Optional --cookies-from-browser equivalent for private videos.
+
+        yt-dlp expects a (browser, profile, keyring, container) tuple; only
+        the browser is configurable here.
+        """
+        browser = str(self.config.get("cookies_from_browser") or "").strip().lower()
+        if not browser:
+            return {}
+        return {"cookiesfrombrowser": (browser, None, None, None)}
 
     def _ffmpeg_location_option(self) -> dict[str, str]:
         configured = self.config.get("ffmpeg_location")

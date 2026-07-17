@@ -93,6 +93,7 @@ def _get_provider() -> YouTubeProvider:
             "subtitle_sleep_interval": s.subtitle_delay_seconds,
             "ffmpeg_location": s.ffmpeg_path_override or None,
             "node_path_override": s.node_path_override,
+            "cookies_from_browser": s.cookies_from_browser,
         }
         _provider = YouTubeProvider(config=config)
     return _provider
@@ -153,6 +154,7 @@ def execute_settings(state: WizardState) -> None:
         "keep_temp_files",
         "node_path_override",
         "ffmpeg_path_override",
+        "cookies_from_browser",
         "max_concurrency",
         "debug_logging",
     ):
@@ -488,27 +490,46 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
                 done += 1
                 bar.update(task_id, completed=done)
 
+    skipped: list[tuple[str, str, str]] = []  # (title, reason, message)
+    real_failed: list[tuple[str, str]] = []
+    for item_title, err in failed:
+        reason = _classify_unavailable(err)
+        if reason:
+            skipped.append((item_title, reason, err))
+        else:
+            real_failed.append((item_title, err))
+
+    available = len(items) - len(skipped)
+    completed_line = f"[dim]Completed:[/] {completed}/{available} available"
+    if skipped:
+        completed_line += f" ({_skipped_summary([reason for _, reason, _ in skipped])})"
+
     lines: list[str] = [
         f"[dim]Output directory:[/] {output_dir}",
         "[dim]Container:[/] MP4 (yt-dlp parity)",
-        f"[dim]Completed:[/] {completed}/{len(items)}",
-        f"[dim]Failed:[/] {len(failed)}",
+        completed_line,
     ]
-    if failed:
+    if real_failed:
+        lines.append(f"[dim]Failed:[/] {len(real_failed)}")
         lines.append("")
         lines.append("[bold red]Failures:[/]")
-        for title, err in failed[:5]:
-            lines.append(f"  [dim]-[/] {title}: [red]{_format_item_error(err)}[/]")
+        for item_title, err in real_failed[:5]:
+            lines.append(f"  [dim]-[/] {item_title}: [red]{_format_item_error(err)}[/]")
+    if skipped:
+        lines.append("")
+        lines.append("[bold dim]Skipped (unavailable to everyone, not an app error):[/]")
+        for item_title, reason, _err in skipped[:5]:
+            lines.append(f"  [dim]- {item_title}: {reason}[/]")
     if warnings:
         lines.append("")
         lines.append("[bold yellow]Warnings (media saved, embed check failed):[/]")
-        for title, warn in warnings[:5]:
-            lines.append(f"  [dim]-[/] {title}: [yellow]{_format_item_error(warn)}[/]")
+        for item_title, warn in warnings[:5]:
+            lines.append(f"  [dim]-[/] {item_title}: [yellow]{_format_item_error(warn)}[/]")
 
     title = (
         "Playlist Best Download Complete"
-        if not failed
-        else f"Playlist Complete ({len(failed)} failed)"
+        if not real_failed
+        else f"Playlist Complete ({len(real_failed)} failed)"
     )
     _show_success(title, "\n".join(lines))
 
@@ -1101,6 +1122,36 @@ def _format_item_error(msg: str, limit: int = 160) -> str:
     return text or "Unknown error"
 
 
+# Videos in these states cannot be downloaded by anyone; treating them as
+# ordinary failures makes users think the app broke. Matched against the
+# prefix-stripped yt-dlp error text.
+_UNAVAILABLE_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("private video", "private"),
+    ("account associated with this video has been terminated", "deleted"),
+    ("video is no longer available", "deleted"),
+    ("video unavailable", "deleted"),
+    ("video has been removed", "deleted"),
+)
+
+
+def _classify_unavailable(msg: str) -> str | None:
+    """Return "private"/"deleted" for videos nobody could download, else None."""
+    text = _ATTEMPT_PREFIX.sub("", msg.strip()).lower()
+    for needle, reason in _UNAVAILABLE_PATTERNS:
+        if needle in text:
+            return reason
+    return None
+
+
+def _skipped_summary(reasons: list[str]) -> str:
+    """Render e.g. "4 skipped: 2 private, 2 deleted"."""
+    counts: dict[str, int] = {}
+    for reason in reasons:
+        counts[reason] = counts.get(reason, 0) + 1
+    detail = ", ".join(f"{n} {reason}" for reason, n in sorted(counts.items()))
+    return f"{len(reasons)} skipped: {detail}"
+
+
 def _run_queued(
     manager: DownloadManager,
     total: int,
@@ -1175,17 +1226,30 @@ def _run_queued(
                 done += 1
                 bar.update(task_id, completed=done)
 
-    if errors:
-        body = "\n".join(errors[:5])
+    unavailable = [msg for msg in errors if _classify_unavailable(msg)]
+    real_errors = [msg for msg in errors if not _classify_unavailable(msg)]
+    skipped_note = ""
+    if unavailable:
+        reasons = [_classify_unavailable(msg) or "deleted" for msg in unavailable]
+        skipped_note = (
+            f"\n[dim]{_skipped_summary(reasons)} — these videos are unavailable "
+            "to everyone, not an app error.[/]"
+        )
+
+    if real_errors:
+        body = "\n".join(real_errors[:5])
+        body += skipped_note
         if warnings:
             body += "\n\n[bold yellow]Warnings (media saved, embed check failed):[/]\n"
             body += "\n".join(f"  [dim]-[/] [yellow]{w}[/]" for w in warnings[:5])
         _show_error(
-            f"{len(errors)} item(s) failed",
+            f"{len(real_errors)} item(s) failed",
             body,
         )
     else:
-        body = f"[dim]Downloaded:[/] {done}/{total} items"
+        available = total - len(unavailable)
+        body = f"[dim]Downloaded:[/] {done - len(unavailable)}/{available} available items"
+        body += skipped_note
         if warnings:
             body += "\n\n[bold yellow]Warnings (media saved, embed check failed):[/]\n"
             body += "\n".join(f"  [dim]-[/] [yellow]{w}[/]" for w in warnings[:5])

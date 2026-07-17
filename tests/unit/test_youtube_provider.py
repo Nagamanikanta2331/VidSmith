@@ -141,3 +141,20 @@ class TestNormalization:
         assert self.provider._quality_height("1080p") == 1080
         assert self.provider._quality_height("best") is None
         assert self.provider._quality_height("999") == 999
+
+
+class TestCookiesOption:
+    def test_disabled_by_default(self) -> None:
+        provider = YouTubeProvider()
+        assert "cookiesfrombrowser" not in provider._safe_download_defaults()
+        assert "cookiesfrombrowser" not in provider._metadata_options()
+
+    def test_empty_and_whitespace_stay_disabled(self) -> None:
+        provider = YouTubeProvider(config={"cookies_from_browser": "   "})
+        assert "cookiesfrombrowser" not in provider._safe_download_defaults()
+
+    def test_configured_browser_lands_as_tuple(self) -> None:
+        provider = YouTubeProvider(config={"cookies_from_browser": "Chrome"})
+        expected = ("chrome", None, None, None)
+        assert provider._safe_download_defaults()["cookiesfrombrowser"] == expected
+        assert provider._metadata_options()["cookiesfrombrowser"] == expected

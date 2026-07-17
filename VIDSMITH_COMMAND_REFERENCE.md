@@ -21,7 +21,7 @@ yt-dlp ^
 VIDEO_URL
 ```
 **Flags Explained:**
-- `--cookies-from-browser chrome`: Bypasses age restrictions/auth.
+- `--cookies-from-browser chrome`: Bypasses age restrictions/auth. In the app this maps to the **Browser Cookies** setting (`cookies_from_browser`, off by default) → yt-dlp option `cookiesfrombrowser`; when set, private videos the signed-in account can access become downloadable.
 - `-f "bv*+ba/b"`: Selects best video and best audio, falling back to best combined.
 - `--sub-langs "..."`: Priority list for embedded subtitles.
 

@@ -9,8 +9,10 @@ import pytest
 from vidsmith.cli.executor import (
     _best_video_job,
     _blind_subtitle_selection,
+    _classify_unavailable,
     _finalize_download,
     _format_item_error,
+    _skipped_summary,
 )
 from vidsmith.downloader.job import DownloadJob, DownloadMediaType, SubtitleMode
 from vidsmith.downloader.validators.models import (
@@ -111,3 +113,50 @@ def test_format_item_error_truncates_and_collapses() -> None:
 
 def test_format_item_error_empty_fallback() -> None:
     assert _format_item_error("   ") == "Unknown error"
+
+
+# Exact error shapes observed from a real playlist run (2 private, 2 terminated).
+@pytest.mark.parametrize(
+    ("msg", "expected"),
+    [
+        (
+            "ERROR: [youtube] QMx6FA8gmgU: Private video. Sign in if you've been "
+            "granted access to this video. Use --cookies-from-browser or --cookies",
+            "private",
+        ),
+        (
+            "ERROR: [youtube] 5h4m0BJ65CU: Video unavailable. This video is no longer "
+            "available because the YouTube account associated with this video has been terminated.",
+            "deleted",
+        ),
+        (
+            "YouTube video download failed after 3 attempts: ERROR: [youtube] "
+            "abc: Video unavailable",
+            "deleted",
+        ),
+        ("ERROR: [youtube] xyz: This video has been removed by the uploader", "deleted"),
+    ],
+)
+def test_classify_unavailable_matches(msg: str, expected: str) -> None:
+    assert _classify_unavailable(msg) == expected
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "ERROR: unable to download video data: HTTP Error 403: Forbidden",
+        "ffmpeg exited with code 1",
+        "Validation failed: Thumbnail embedding failed",
+        "",
+    ],
+)
+def test_classify_unavailable_ignores_real_failures(msg: str) -> None:
+    assert _classify_unavailable(msg) is None
+
+
+def test_skipped_summary_counts_reasons() -> None:
+    assert (
+        _skipped_summary(["private", "deleted", "deleted", "private"])
+        == "4 skipped: 2 deleted, 2 private"
+    )
+    assert _skipped_summary(["private"]) == "1 skipped: 1 private"

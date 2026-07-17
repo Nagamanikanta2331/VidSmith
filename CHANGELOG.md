@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.2] - 2026-07-17
+
+### Added
+- **Browser Cookies setting** (Settings → Browser Cookies, off by default). Imports YouTube cookies from Chrome/Edge/Firefox/Brave/Opera/Vivaldi (yt-dlp's `--cookies-from-browser`) so private videos the signed-in account has access to can be analyzed and downloaded. When off — the default — nothing changes.
+
+### Changed
+- **Playlist summaries no longer count unavailable videos as failures.** Private videos and videos whose YouTube channel was terminated cannot be downloaded by anyone; they are now classified from the yt-dlp error text and reported as skipped with a reason — `Completed: 39/39 available (4 skipped: 2 private, 2 deleted)` — instead of `Completed: 39/43, Failed: 4`. The red "Failures" list and the "(N failed)" panel title now appear only for real failures. Applies to both Best Download and Custom Playlist paths.
+
+### Fixed
+- `__version__` in the `vidsmith` package was stuck at `0.1.0`; it now matches the release version.
+
 ## [1.1.1] - 2026-07-17
 
 ### Fixed

@@ -22,6 +22,11 @@ These are documented quirks and intentional behaviors of the system. Do NOT try 
 - **Cause:** Playlist analysis is flat (`extract_flat`) for speed — fetching per-item metadata for a 43-item playlist would multiply analysis time by the item count.
 - **Decision:** Intentional. The supported set is requested blindly; `ignoreerrors=True` and the subtitle validator downgrade missing languages to "unavailable" warnings. Do not switch to per-item analysis to "fix" this.
 
+## Private / Deleted Playlist Items Cannot Be Downloaded
+- **Symptom:** Some playlist items end as "skipped: private" or "skipped: deleted" (e.g. `Completed: 39/39 available (4 skipped: 2 private, 2 deleted)`).
+- **Cause:** Private videos require a signed-in account that was granted access; videos from terminated YouTube accounts no longer exist anywhere. yt-dlp itself fails identically on both (verified against real playlist items).
+- **Decision:** These are classified from the yt-dlp error text (`_classify_unavailable` in `cli/executor.py`) and reported as skipped, not failed — nothing went wrong on the user's side. The only lever is the **Browser Cookies** setting (`cookies_from_browser`), which lets private videos the user's account can access download; deleted videos are unrecoverable by design. Do not retry or "fix" these.
+
 ## Playlist Parallelism Is Capped at 5
 - **Symptom:** The wizard allows at most 5 simultaneous downloads.
 - **Cause:** More parallel connections raise YouTube's rate-limiting/429 risk sharply and saturate most residential bandwidth anyway.

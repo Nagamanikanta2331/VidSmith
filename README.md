@@ -229,6 +229,12 @@ media downloaded fine but whose thumbnail or subtitle embed check failed is
 counted as **completed with a warning**, never as a failed download — and
 failure reasons are shown in full, not truncated into uselessness.
 
+Videos nobody could download — private videos and videos whose channel was
+deleted — are **not counted as failures** either. They show up as skipped,
+with the reason: `Completed: 39/39 available (4 skipped: 2 private, 2
+deleted)`. If your YouTube account actually has access to a private video,
+enable **Browser Cookies** in Settings and it will download.
+
 ### Shorts
 
 YouTube Shorts URLs (`youtube.com/shorts/...`) are fully supported — paste
@@ -263,10 +269,12 @@ tune the provider via the `YouTubeProvider(config=...)` API:
 | `subtitle_sleep_interval` | `1` | Seconds between subtitle requests (429 protection) |
 | `ffmpeg_location` | auto | Explicit FFmpeg path |
 | `metadata_cache_size` | `16` | Analyzed-URL cache entries |
+| `cookies_from_browser` | off | Browser to import YouTube cookies from (enables private videos you have access to) |
 
 Persistent user settings live in the in-app **Settings** menu (press `s`):
 default quality, audio format, output directory, parallel downloads
-(`max_concurrency`), cleanup behavior, and more — saved to the `VidSmith`
+(`max_concurrency`), cleanup behavior, **browser cookies** (for private
+videos your account can access), and more — saved to the `VidSmith`
 config directory automatically.
 
 ---
