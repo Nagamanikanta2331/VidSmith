@@ -468,7 +468,9 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
     provider = _get_provider()
     workers = max(1, min(current_settings().max_concurrency, len(items)))
 
-    def _download_item(index: int, item_url: str, title: str, bar: Progress) -> tuple[str, str, str]:
+    def _download_item(
+        index: int, item_url: str, title: str, bar: Progress
+    ) -> tuple[str, str, str]:
         short_title = title if len(title) <= 32 else title[:30] + "…"
         item_task = bar.add_task(
             f"  [dim]↳[/] [{index:02d}] {short_title}",
@@ -1272,7 +1274,7 @@ def _run_queued(
 
     def _download_one(job: DownloadJob, bar: Progress, index: int) -> tuple[str, str]:
         job.mark_running()
-        short_title = job.title or f"Item {index}"
+        short_title = getattr(job, "title", "") or f"Item {index}"
         if len(short_title) > 32:
             short_title = short_title[:30] + "…"
         item_task = bar.add_task(
@@ -1347,7 +1349,9 @@ def _run_queued(
         )
 
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(_download_one, job, bar, idx) for idx, job in enumerate(pending, 1)]
+            futures = [
+                pool.submit(_download_one, job, bar, idx) for idx, job in enumerate(pending, 1)
+            ]
             for future in as_completed(futures):
                 kind, msg = future.result()
                 if kind == "error":

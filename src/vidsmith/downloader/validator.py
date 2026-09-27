@@ -51,11 +51,7 @@ def _get_primary_output(
     # Never fall back to image or subtitle sidecars.
     if media_type in (DownloadMediaType.VIDEO, DownloadMediaType.AUDIO):
         for path in files:
-            if (
-                path.exists()
-                and path.is_file()
-                and path.suffix.lower() not in _SIDECAR_EXTENSIONS
-            ):
+            if path.exists() and path.is_file() and path.suffix.lower() not in _SIDECAR_EXTENSIONS:
                 return path
         return None
 
@@ -81,11 +77,7 @@ def _get_primary_output(
 
     # General fallback: prefer non-sidecar media files
     for path in files:
-        if (
-            path.exists()
-            and path.is_file()
-            and path.suffix.lower() not in _SIDECAR_EXTENSIONS
-        ):
+        if path.exists() and path.is_file() and path.suffix.lower() not in _SIDECAR_EXTENSIONS:
             return path
     for path in files:
         if path.exists() and path.is_file():

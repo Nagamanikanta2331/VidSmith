@@ -6,6 +6,7 @@ No downloading takes place here — extract_flat=True is used throughout.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 import yt_dlp
@@ -157,7 +158,6 @@ def analyze(url: str) -> AnalysisResult:
     if not is_youtube_url(url):
         raise UnsupportedURLError(f"Not a recognised YouTube URL: {url!r}")
 
-    from pathlib import Path
     from vidsmith.settings.store import current_settings
 
     s = current_settings()

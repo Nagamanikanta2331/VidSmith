@@ -542,7 +542,8 @@ class YouTubeProvider(Provider):
                         if f.exists()
                         and f.is_file()
                         and f.stat().st_size > 0
-                        and f.suffix.lower() not in {
+                        and f.suffix.lower()
+                        not in {
                             ".vtt",
                             ".srt",
                             ".ass",
@@ -1097,7 +1098,8 @@ class YouTubeProvider(Provider):
             postprocessors.append(
                 {
                     "key": "EmbedThumbnail",
-                    "already_have_thumbnail": job.thumbnail_mode in {ThumbnailMode.SAVE, ThumbnailMode.BOTH},
+                    "already_have_thumbnail": job.thumbnail_mode
+                    in {ThumbnailMode.SAVE, ThumbnailMode.BOTH},
                 }
             )
 

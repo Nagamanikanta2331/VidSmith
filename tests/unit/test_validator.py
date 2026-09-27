@@ -379,4 +379,3 @@ def test_validate_media_file_missing_when_only_thumbnail_downloaded(tmp_path: Pa
     assert val.success is False
     assert val.error_code == ValidationErrorCode.FILE_MISSING
     assert "Media file was not downloaded" in val.error_message
-

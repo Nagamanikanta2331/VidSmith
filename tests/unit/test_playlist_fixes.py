@@ -131,8 +131,6 @@ def test_all_download_stages_can_be_dispatched() -> None:
     assert DownloadStage.PROCESSING_THUMBNAIL == DownloadStage.EMBEDDING_THUMBNAIL
 
 
-
-
 @pytest.mark.parametrize("code", [ValidationErrorCode.FILE_MISSING, ValidationErrorCode.FILE_EMPTY])
 def test_finalize_non_strict_still_raises_on_missing_media(code: str) -> None:
     with (
@@ -238,7 +236,9 @@ def test_playlist_subtitles_none_disables_subtitles() -> None:
         skipped=0,
     )
     with (
-        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch(
+            "vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result
+        ) as mock_submit,
         patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
     ):
         execute_playlist(state, _analysis())
@@ -272,7 +272,9 @@ def test_playlist_subtitles_empty_disables_subtitles() -> None:
         skipped=0,
     )
     with (
-        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch(
+            "vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result
+        ) as mock_submit,
         patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
     ):
         execute_playlist(state, _analysis())
@@ -305,7 +307,9 @@ def test_playlist_subtitles_custom_does_not_force_english() -> None:
         skipped=0,
     )
     with (
-        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch(
+            "vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result
+        ) as mock_submit,
         patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
     ):
         execute_playlist(state, _analysis())
@@ -341,12 +345,12 @@ def test_playlist_thumbnail_mode_propagates_to_template() -> None:
         skipped=0,
     )
     with (
-        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch(
+            "vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result
+        ) as mock_submit,
         patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
     ):
         execute_playlist(state, _analysis())
         assert mock_submit.called
         job = mock_submit.call_args[0][0]
         assert job.download_template.thumbnail_mode == ThumbnailMode.SAVE
-
-

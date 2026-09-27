@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from vidsmith.providers.youtube import (
     YouTubeProvider,
     _apply_client_fallback,
@@ -198,7 +202,9 @@ class TestClientFallback:
 
 
 class TestCookiesAndSpeed:
-    def test_cookies_inherit_from_settings(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_cookies_inherit_from_settings(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         cfile = tmp_path / "cookies.txt"
         cfile.write_text("# Netscape HTTP Cookie File", encoding="utf-8")
         from vidsmith.settings.store import current_settings
@@ -210,5 +216,3 @@ class TestCookiesAndSpeed:
         provider = YouTubeProvider()
         defaults = provider._safe_download_defaults()
         assert defaults.get("cookiefile") == str(cfile)
-
-
