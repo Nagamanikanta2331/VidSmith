@@ -87,6 +87,15 @@ def test_cookies_from_browser_round_trip(mock_settings_dir: Path):
     assert load_settings().cookies_from_browser == "chrome"
 
 
+def test_cookie_file_round_trip(mock_settings_dir: Path):
+    s = AppSettings(cookie_file="C:/path/to/cookies.txt")
+    save_settings(s)
+
+    data = json.loads(settings_path().read_text())
+    assert data["settings"]["cookie_file"] == "C:/path/to/cookies.txt"
+    assert load_settings().cookie_file == "C:/path/to/cookies.txt"
+
+
 def test_settings_file_without_cookies_key_defaults_off(mock_settings_dir: Path):
     """Files written before the cookies feature load with it disabled."""
     sp = settings_path()
@@ -177,6 +186,7 @@ def test_execute_settings_round_trip(mock_settings_dir: Path):
             "keep_temp_files": True,
             "node_path_override": "",
             "ffmpeg_path_override": "",
+            "cookie_file": "C:/cookies.txt",
             "max_concurrency": 4,
         }
     )
@@ -187,6 +197,7 @@ def test_execute_settings_round_trip(mock_settings_dir: Path):
     assert s.default_container == "mkv"
     assert s.cleanup_enabled is False
     assert s.keep_temp_files is True
+    assert s.cookie_file == "C:/cookies.txt"
 
     # …and the same values survive a fresh load from disk.
     loaded = load_settings()
@@ -195,4 +206,5 @@ def test_execute_settings_round_trip(mock_settings_dir: Path):
     assert loaded.default_audio_format == "flac"
     assert loaded.default_audio_quality == "320k"
     assert loaded.subtitle_delay_seconds == 60
+    assert loaded.cookie_file == "C:/cookies.txt"
     assert loaded.max_concurrency == 4

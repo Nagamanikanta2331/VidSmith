@@ -94,6 +94,7 @@ def _get_provider() -> YouTubeProvider:
             "ffmpeg_location": s.ffmpeg_path_override or None,
             "node_path_override": s.node_path_override,
             "cookies_from_browser": s.cookies_from_browser,
+            "cookie_file": s.cookie_file,
         }
         _provider = YouTubeProvider(config=config)
     return _provider
@@ -155,6 +156,7 @@ def execute_settings(state: WizardState) -> None:
         "node_path_override",
         "ffmpeg_path_override",
         "cookies_from_browser",
+        "cookie_file",
         "max_concurrency",
         "debug_logging",
     ):
@@ -210,18 +212,37 @@ def execute_playlist(state: WizardState, result: AnalysisResult) -> None:
     # English track merged when one exists (availability is unknown from
     # flat analysis, and missing languages are non-fatal). Audio items keep
     # subtitles off.
+    thumb_map = {
+        "embed": ThumbnailMode.EMBED,
+        "save": ThumbnailMode.SAVE,
+        "both": ThumbnailMode.BOTH,
+        "none": ThumbnailMode.NONE,
+    }
+    thumb_mode = thumb_map.get(state.get("thumbnail_mode", "embed"), ThumbnailMode.EMBED)
+
     template = DownloadJob(
         url=result.url,
         media_type=dl_media_type,
         output_dir=output_dir,
         quality=quality,
+        thumbnail_mode=thumb_mode,
     )
     if dl_media_type == DownloadMediaType.VIDEO:
-        chosen = set(state.get("subtitle_langs") or []) | {"en"}
-        langs = [lang for lang in SUPPORTED_SUBTITLE_LANGUAGES if lang in chosen]
-        template.subtitle_mode = SubtitleMode.BOTH
-        template.subtitle_languages = langs
-        template.subtitle_requested_languages = langs
+        raw_chosen = set(state.get("subtitle_langs") or [])
+        if "none" in raw_chosen or not raw_chosen:
+            template.subtitle_mode = SubtitleMode.NONE
+            template.subtitle_languages = []
+            template.subtitle_requested_languages = []
+        else:
+            langs = [lang for lang in SUPPORTED_SUBTITLE_LANGUAGES if lang in raw_chosen]
+            if langs:
+                template.subtitle_mode = SubtitleMode.BOTH
+                template.subtitle_languages = langs
+                template.subtitle_requested_languages = langs
+            else:
+                template.subtitle_mode = SubtitleMode.NONE
+                template.subtitle_languages = []
+                template.subtitle_requested_languages = []
 
     playlist_job = PlaylistJob(
         url=result.url,
@@ -447,23 +468,94 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
     provider = _get_provider()
     workers = max(1, min(current_settings().max_concurrency, len(items)))
 
-    def _download_item(index: int, item_url: str, title: str) -> tuple[str, str, str]:
+    def _download_item(index: int, item_url: str, title: str, bar: Progress) -> tuple[str, str, str]:
+        short_title = title if len(title) <= 32 else title[:30] + "…"
+        item_task = bar.add_task(
+            f"  [dim]↳[/] [{index:02d}] {short_title}",
+            total=100,
+            percent="",
+            bytes="",
+            speed="",
+            eta="",
+        )
+
+        def _on_item_progress(p: DownloadProgress) -> None:
+            if p.stage in {
+                DownloadStage.DOWNLOADING_VIDEO,
+                DownloadStage.DOWNLOADING_AUDIO,
+                DownloadStage.DOWNLOADING_MEDIA,
+            }:
+                pct = p.percent or 0.0
+                pct_str = f"{pct:5.1f}%" if p.percent is not None else ""
+                bar.update(
+                    item_task,
+                    completed=pct,
+                    percent=pct_str,
+                    bytes=_progress_bytes(p),
+                    speed=p.speed or "",
+                    eta=f"ETA {p.eta}" if p.eta else "",
+                )
+            elif p.stage in {
+                DownloadStage.MERGING,
+                DownloadStage.EMBEDDING_METADATA,
+                DownloadStage.EMBEDDING_THUMBNAIL,
+                DownloadStage.PROCESSING_SUBTITLES,
+            }:
+                bar.update(
+                    item_task,
+                    completed=100.0,
+                    percent="100.0%",
+                    speed="[yellow]Merging…[/]",
+                    eta="",
+                )
+            elif p.stage == DownloadStage.COMPLETED:
+                bar.update(
+                    item_task,
+                    completed=100.0,
+                    percent="100.0%",
+                    speed="[green]Done[/]",
+                    eta="",
+                )
+
         job = _best_video_job(result, output_dir, url=item_url)
         job.output_template = f"{index:03d} - %(title)s.%(ext)s"
+
+        # Resume support: skip already-downloaded valid media files
+        if not job.overwrite:
+            already_done = False
+            for cand in output_dir.glob(f"{index:03d} - *.*"):
+                if (
+                    cand.is_file()
+                    and cand.suffix.lower() in {".mp4", ".mkv", ".webm", ".m4a", ".mp3"}
+                    and not cand.name.endswith(".part")
+                    and not cand.name.endswith(".ytdl")
+                    and cand.stat().st_size > 100 * 1024
+                ):
+                    already_done = True
+                    break
+            if already_done:
+                bar.remove_task(item_task)
+                return ("ok", title, "Already downloaded")
+
         try:
-            dl_res = provider.download(job)
+            dl_res = provider.download(job, progress_callback=_on_item_progress)
             validation = _finalize_download(job, dl_res, strict=False)
+            bar.remove_task(item_task)
             if not validation.success:
                 return ("warning", title, validation.error_message or "Validation warning")
             return ("ok", title, "")
         except Exception as exc:
+            bar.remove_task(item_task)
             return ("error", title, str(exc))
 
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold cyan]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
+        BarColumn(bar_width=24),
+        TextColumn("[cyan]{task.fields[percent]}"),
+        TextColumn("[dim]{task.fields[bytes]}"),
+        TextColumn("[green]{task.fields[speed]}"),
+        TextColumn("[yellow]{task.fields[eta]}"),
         TimeElapsedColumn(),
         console=console,
         transient=True,
@@ -471,12 +563,16 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
         task_id = bar.add_task(
             f"Best Download: {result.title} ({workers} at a time)",
             total=len(items),
+            percent=f"0/{len(items)}",
+            bytes="",
+            speed="",
+            eta="",
         )
 
         done = 0
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [
-                pool.submit(_download_item, index, item.url, item.title or f"Item {index}")
+                pool.submit(_download_item, index, item.url, item.title or f"Item {index}", bar)
                 for index, item in enumerate(items, 1)
             ]
             for future in as_completed(futures):
@@ -488,7 +584,7 @@ def execute_best_playlist_download(state: WizardState, result: AnalysisResult) -
                     if kind == "warning":
                         warnings.append((title, msg))
                 done += 1
-                bar.update(task_id, completed=done)
+                bar.update(task_id, completed=done, percent=f"{done}/{len(items)}")
 
     skipped: list[tuple[str, str, str]] = []  # (title, reason, message)
     real_failed: list[tuple[str, str]] = []
@@ -1040,10 +1136,8 @@ def _finalize_download(
     s = current_settings()
 
     validation = validate_download(job, dl_result)
-    if not validation.success:
-        if strict or validation.error_code in _FATAL_VALIDATION_CODES:
-            raise DownloadError(validation.error_message or "Validation failed.")
-        return validation
+    if not validation.success and (strict or validation.error_code in _FATAL_VALIDATION_CODES):
+        raise DownloadError(validation.error_message or "Validation failed.")
 
     from vidsmith.downloader.cleanup import cleanup_job_artifacts
 
@@ -1176,16 +1270,45 @@ def _run_queued(
     pending = manager.list_jobs(status_filter=_JS.PENDING)
     workers = max(1, min(concurrency, len(pending))) if pending else 1
 
-    def _download_one(job: DownloadJob) -> tuple[str, str]:
+    def _download_one(job: DownloadJob, bar: Progress, index: int) -> tuple[str, str]:
         job.mark_running()
+        short_title = job.title or f"Item {index}"
+        if len(short_title) > 32:
+            short_title = short_title[:30] + "…"
+        item_task = bar.add_task(
+            f"  [dim]↳[/] [{index:02d}] {short_title}",
+            total=100,
+            percent="",
+            bytes="",
+            speed="",
+            eta="",
+        )
+
+        def _on_one_progress(p: DownloadProgress) -> None:
+            if p.stage in {
+                DownloadStage.DOWNLOADING_VIDEO,
+                DownloadStage.DOWNLOADING_AUDIO,
+                DownloadStage.DOWNLOADING_MEDIA,
+            }:
+                pct = p.percent or 0.0
+                pct_str = f"{pct:5.1f}%" if p.percent is not None else ""
+                bar.update(
+                    item_task,
+                    completed=pct,
+                    percent=pct_str,
+                    bytes=_progress_bytes(p),
+                    speed=p.speed or "",
+                    eta=f"ETA {p.eta}" if p.eta else "",
+                )
+
         try:
             if job.media_type == DownloadMediaType.AUDIO:
-                dl_res = provider.download_audio(job)
+                dl_res = provider.download_audio(job, progress_callback=_on_one_progress)
             else:
-                dl_res = provider.download(job)
+                dl_res = provider.download(job, progress_callback=_on_one_progress)
 
             validation = _finalize_download(job, dl_res, strict=False)
-
+            bar.remove_task(item_task)
             job.mark_completed()
             if not validation.success:
                 return (
@@ -1194,6 +1317,7 @@ def _run_queued(
                 )
             return ("ok", "")
         except Exception as exc:
+            bar.remove_task(item_task)
             job.mark_failed(str(exc))
             return ("error", _format_item_error(str(exc)))
 
@@ -1204,8 +1328,11 @@ def _run_queued(
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold cyan]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
+        BarColumn(bar_width=24),
+        TextColumn("[cyan]{task.fields[percent]}"),
+        TextColumn("[dim]{task.fields[bytes]}"),
+        TextColumn("[green]{task.fields[speed]}"),
+        TextColumn("[yellow]{task.fields[eta]}"),
         TimeElapsedColumn(),
         console=console,
         transient=True,
@@ -1213,10 +1340,14 @@ def _run_queued(
         task_id = bar.add_task(
             f"Downloading {title}… ({workers} at a time)",
             total=total,
+            percent=f"0/{total}",
+            bytes="",
+            speed="",
+            eta="",
         )
 
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(_download_one, job) for job in pending]
+            futures = [pool.submit(_download_one, job, bar, idx) for idx, job in enumerate(pending, 1)]
             for future in as_completed(futures):
                 kind, msg = future.result()
                 if kind == "error":
@@ -1224,7 +1355,7 @@ def _run_queued(
                 elif kind == "warning":
                     warnings.append(msg)
                 done += 1
-                bar.update(task_id, completed=done)
+                bar.update(task_id, completed=done, percent=f"{done}/{total}")
 
     unavailable = [msg for msg in errors if _classify_unavailable(msg)]
     real_errors = [msg for msg in errors if not _classify_unavailable(msg)]

@@ -30,6 +30,8 @@ class DownloadStage(str, Enum):
     ANALYZING = "extract"
     DOWNLOADING = "download"
     PROCESSING = "cleanup"
+    PROCESSING_METADATA = "metadata"
+    PROCESSING_THUMBNAIL = "thumbnail"
 
 
 DOWNLOAD_STAGES: dict[str, str] = {

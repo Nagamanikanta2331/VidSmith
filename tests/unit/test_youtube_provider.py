@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from vidsmith.providers.youtube import (
     YouTubeProvider,
+    _apply_client_fallback,
     _classify_subtitle_reason,
     _SubtitleLogger,
 )
@@ -16,22 +17,23 @@ class TestVideoFormatSelector:
     def test_best_uses_vp9_preference_chain(self) -> None:
         """Best quality uses the shared VP9+Opus preference before generic fallback."""
         assert self.provider._video_format_selector("best", "mkv") == (
-            "313+251/308+251/303+251/302+251/bestvideo+bestaudio"
+            "313+251/308+251/303+251/302+251/bestvideo+bestaudio/bv*+ba/b"
         )
 
     def test_height_capped_mkv(self) -> None:
         selector = self.provider._video_format_selector("1080", "mkv")
-        assert selector == "303+251/302+251/bv*[height<=1080]+ba/b[height<=1080]"
+        assert selector == (
+            "303+251/302+251/bestvideo[height<=1080]+bestaudio/best[height<=1080]/bv*[height<=1080]+ba/b[height<=1080]"
+        )
 
     def test_mp4_uses_vp9_preference_before_compatibility_filters(self) -> None:
         selector = self.provider._video_format_selector("best", "mp4")
         assert selector.startswith("313+251/308+251/303+251/302+251/")
-        assert "[ext=mp4]" in selector
-        assert "[ext=m4a]" in selector
+        assert "bestvideo+bestaudio" in selector
 
     def test_unknown_quality_falls_back_to_best(self) -> None:
         assert self.provider._video_format_selector("weird", "mkv") == (
-            "313+251/308+251/303+251/302+251/bestvideo+bestaudio"
+            "313+251/308+251/303+251/302+251/bestvideo+bestaudio/bv*+ba/b"
         )
 
 
@@ -158,3 +160,55 @@ class TestCookiesOption:
         expected = ("chrome", None, None, None)
         assert provider._safe_download_defaults()["cookiesfrombrowser"] == expected
         assert provider._metadata_options()["cookiesfrombrowser"] == expected
+
+    def test_cookie_file_configured(self, tmp_path) -> None:
+        cookie_file = tmp_path / "cookies.txt"
+        cookie_file.write_text("# Netscape HTTP Cookie File\n")
+        provider = YouTubeProvider(config={"cookie_file": str(cookie_file)})
+        assert provider._safe_download_defaults()["cookiefile"] == str(cookie_file)
+        assert provider._metadata_options()["cookiefile"] == str(cookie_file)
+
+    def test_cookie_file_empty_disabled(self) -> None:
+        provider = YouTubeProvider(config={"cookie_file": "   "})
+        assert "cookiefile" not in provider._safe_download_defaults()
+
+    def test_remote_components_and_fragments(self) -> None:
+        provider = YouTubeProvider()
+        defaults = provider._safe_download_defaults()
+        assert defaults["remote_components"] == ["ejs:github"]
+        assert defaults["concurrent_fragment_downloads"] == 8
+
+
+class TestClientFallback:
+    def test_fallback_rotation(self) -> None:
+        opts: dict = {}
+        _apply_client_fallback(opts, 1)
+        assert opts["extractor_args"]["youtube"]["player_client"] == ["web", "web_embedded", "tv"]
+
+        _apply_client_fallback(opts, 2)
+        assert opts["extractor_args"]["youtube"]["player_client"] == ["mweb", "web_embedded"]
+
+        _apply_client_fallback(opts, 3)
+        assert opts["extractor_args"]["youtube"]["player_client"] == ["android", "web"]
+
+    def test_fallback_zero_or_negative_noop(self) -> None:
+        opts: dict = {}
+        _apply_client_fallback(opts, 0)
+        assert "extractor_args" not in opts
+
+
+class TestCookiesAndSpeed:
+    def test_cookies_inherit_from_settings(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        cfile = tmp_path / "cookies.txt"
+        cfile.write_text("# Netscape HTTP Cookie File", encoding="utf-8")
+        from vidsmith.settings.store import current_settings
+
+        s = current_settings()
+        monkeypatch.setattr(s, "cookie_file", str(cfile))
+        monkeypatch.setattr(s, "cookies_from_browser", "firefox")
+
+        provider = YouTubeProvider()
+        defaults = provider._safe_download_defaults()
+        assert defaults.get("cookiefile") == str(cfile)
+
+

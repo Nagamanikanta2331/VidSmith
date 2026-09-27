@@ -1,8 +1,5 @@
 # VidSmith
 
-> **🤖 Built by AI — Idea by the Owner**
-> This entire project — all source code, tests, UI, and documentation — was developed by an AI coding assistant (Claude). The original idea, product direction, and ownership belong to the repository owner, [Naga Manikanta Nandyala](https://github.com/Nagamanikanta2331).
-
 **A production-grade, zero-config YouTube media downloader for your terminal.**
 
 VidSmith wraps the full power of [yt-dlp](https://github.com/yt-dlp/yt-dlp)
@@ -132,20 +129,24 @@ folder: `%APPDATA%\VidSmith` on Windows, or `~/.config/vidsmith` on
 Linux/macOS.
 
 ### Prerequisites
+
 - **Python 3.12+**
 - **yt-dlp**: Installed automatically for you when you run the installation command above. No manual installation is required!
 
 ### Recommended System Tools
+
 While VidSmith comes with fallbacks, installing these system tools ensures maximum performance and compatibility:
 
 **1. FFmpeg (for media conversion and muxing)**
 If not found, VidSmith uses a bundled fallback (`imageio-ffmpeg`), but a native installation is faster and more robust.
+
 - **Windows:** `winget install ffmpeg` (or download from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/))
 - **macOS:** `brew install ffmpeg`
 - **Linux:** `sudo apt install ffmpeg` (Ubuntu/Debian)
 
 **2. Node.js or Deno (for complex YouTube extractions)**
 YouTube occasionally requires executing JavaScript to extract certain video formats.
+
 - **Windows/macOS/Linux:** Download from [Node.js](https://nodejs.org/) or install Deno via `iwr https://deno.land/install.ps1 -useb | iex` (Windows) / `curl -fsSL https://deno.land/install.sh | sh` (macOS/Linux).
 
 Verify your environment:
@@ -174,14 +175,14 @@ you got.
 
 ## Commands
 
-| Command | Purpose |
-|---------|---------|
-| `vidsmith` | Launch the interactive app |
-| `vidsmith doctor` | Diagnose environment (tools, network, YouTube access) |
-| `vidsmith doctor --no-network` | Same, skipping connectivity checks |
-| `vidsmith --version` | Print the version |
-| `pip install --upgrade --no-cache-dir vidsmith` | Update to the latest release |
-| `pip uninstall vidsmith` | Remove VidSmith |
+| Command                                           | Purpose                                               |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| `vidsmith`                                      | Launch the interactive app                            |
+| `vidsmith doctor`                               | Diagnose environment (tools, network, YouTube access) |
+| `vidsmith doctor --no-network`                  | Same, skipping connectivity checks                    |
+| `vidsmith --version`                            | Print the version                                     |
+| `pip install --upgrade --no-cache-dir vidsmith` | Update to the latest release                          |
+| `pip uninstall vidsmith`                        | Remove VidSmith                                       |
 
 ---
 
@@ -191,15 +192,15 @@ you got.
 
 Zero configuration. Automatically:
 
-| What | How |
-|------|-----|
-| Video | VP9 preference chain: `313+251/308+251/303+251/302+251`, then `bestvideo+bestaudio` |
-| Audio | Best available track (e.g. Opus 128k) |
-| Container | MKV — holds any codec, subtitles, chapters, and cover art |
-| Subtitles | Manual + auto captions downloaded and embedded |
-| Metadata | Title, channel, date, description embedded |
-| Chapters | Embedded when the video has them |
-| Thumbnail | Embedded as MKV attachment (always visible) |
+| What      | How                                                                                    |
+| --------- | -------------------------------------------------------------------------------------- |
+| Video     | VP9 preference chain:`313+251/308+251/303+251/302+251`, then `bestvideo+bestaudio` |
+| Audio     | Best available track (e.g. Opus 128k)                                                  |
+| Container | MKV — holds any codec, subtitles, chapters, and cover art                             |
+| Subtitles | Manual + auto captions downloaded and embedded                                         |
+| Metadata  | Title, channel, date, description embedded                                             |
+| Chapters  | Embedded when the video has them                                                       |
+| Thumbnail | Embedded as MKV attachment (always visible)                                            |
 
 ### Custom video
 
@@ -231,8 +232,7 @@ failure reasons are shown in full, not truncated into uselessness.
 
 Videos nobody could download — private videos and videos whose channel was
 deleted — are **not counted as failures** either. They show up as skipped,
-with the reason: `Completed: 39/39 available (4 skipped: 2 private, 2
-deleted)`. If your YouTube account actually has access to a private video,
+with the reason: `Completed: 39/39 available (4 skipped: 2 private, 2 deleted)`. If your YouTube account actually has access to a private video,
 enable **Browser Cookies** in Settings and it will download.
 
 ### Shorts
@@ -263,13 +263,13 @@ downloading media.
 VidSmith is deliberately zero-config for the common case. Power users can
 tune the provider via the `YouTubeProvider(config=...)` API:
 
-| Key | Default | Purpose |
-|-----|---------|---------|
-| `download_retries` | `3` | Full-download retry attempts |
-| `subtitle_sleep_interval` | `1` | Seconds between subtitle requests (429 protection) |
-| `ffmpeg_location` | auto | Explicit FFmpeg path |
-| `metadata_cache_size` | `16` | Analyzed-URL cache entries |
-| `cookies_from_browser` | off | Browser to import YouTube cookies from (enables private videos you have access to) |
+| Key                         | Default | Purpose                                                                            |
+| --------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| `download_retries`        | `3`   | Full-download retry attempts                                                       |
+| `subtitle_sleep_interval` | `1`   | Seconds between subtitle requests (429 protection)                                 |
+| `ffmpeg_location`         | auto    | Explicit FFmpeg path                                                               |
+| `metadata_cache_size`     | `16`  | Analyzed-URL cache entries                                                         |
+| `cookies_from_browser`    | off     | Browser to import YouTube cookies from (enables private videos you have access to) |
 
 Persistent user settings live in the in-app **Settings** menu (press `s`):
 default quality, audio format, output directory, parallel downloads
@@ -281,14 +281,14 @@ config directory automatically.
 
 ## Dependencies
 
-| Package | Role |
-|---------|------|
-| `yt-dlp` | Extraction and downloading |
-| `rich` | Terminal UI |
-| `curl_cffi` | Browser impersonation (reduces YouTube rate limiting) |
-| `mutagen` | Visible MP4/M4A cover-art atoms |
-| `webvtt-py` | Transcript parsing |
-| `imageio-ffmpeg` | Bundled FFmpeg fallback |
+| Package            | Role                                                  |
+| ------------------ | ----------------------------------------------------- |
+| `yt-dlp`         | Extraction and downloading                            |
+| `rich`           | Terminal UI                                           |
+| `curl_cffi`      | Browser impersonation (reduces YouTube rate limiting) |
+| `mutagen`        | Visible MP4/M4A cover-art atoms                       |
+| `webvtt-py`      | Transcript parsing                                    |
+| `imageio-ffmpeg` | Bundled FFmpeg fallback                               |
 
 Optional (auto-detected, recommended):
 
@@ -301,14 +301,14 @@ Optional (auto-detected, recommended):
 
 **Run `vidsmith doctor` first.** It diagnoses nearly every common problem.
 
-| Symptom | Cause & fix |
-|---------|-------------|
-| "Impersonation … not available" | `pip install curl_cffi` |
-| Thumbnail invisible in Windows Explorer (MP4/M4A) | `pip install mutagen` — or use MKV. Windows Explorer ignores ffmpeg's `attached_pic`; VLC/MediaInfo show it. |
-| HTTP 429 on subtitles | YouTube rate limiting. VidSmith throttles and continues; failed languages are listed in the summary. Retry later for missing ones. |
-| "Some formats may be missing" | Install [Deno](https://deno.com) (or Node.js). |
-| Download smaller than other tools | Modern codecs such as VP9 give the same quality in half the size of H.264. Compare resolution/codec, not bytes. |
-| Interrupted download | Rerun the same download — it resumes from `.part`. |
+| Symptom                                           | Cause & fix                                                                                                                        |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| "Impersonation … not available"                  | `pip install curl_cffi`                                                                                                          |
+| Thumbnail invisible in Windows Explorer (MP4/M4A) | `pip install mutagen` — or use MKV. Windows Explorer ignores ffmpeg's `attached_pic`; VLC/MediaInfo show it.                  |
+| HTTP 429 on subtitles                             | YouTube rate limiting. VidSmith throttles and continues; failed languages are listed in the summary. Retry later for missing ones. |
+| "Some formats may be missing"                     | Install[Deno](https://deno.com) (or Node.js).                                                                                       |
+| Download smaller than other tools                 | Modern codecs such as VP9 give the same quality in half the size of H.264. Compare resolution/codec, not bytes.                    |
+| Interrupted download                              | Rerun the same download — it resumes from`.part`.                                                                               |
 
 ## FAQ
 

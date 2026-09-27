@@ -31,14 +31,20 @@ _QUALITY_CHOICES = [
 ]
 
 # Playlist analysis is flat (no per-item caption data), so the supported set
-# is offered statically. English is the mandatory fallback: it is requested
-# even when deselected, so every item gets at least the auto English track
-# merged when available.
+# is offered statically. Subtitles can be skipped with 'None' or by deselecting all.
 _SUBTITLE_CHOICES = [
+    Choice("None", "none", "Do not download or embed subtitles"),
     Choice("Telugu", "te", "Manual or auto-generated"),
     Choice("Hindi", "hi", "Manual or auto-generated"),
     Choice("Tamil", "ta", "Manual or auto-generated"),
-    Choice("English", "en", "Always included (mandatory fallback)"),
+    Choice("English", "en", "Manual or auto-generated"),
+]
+
+_THUMBNAIL_CHOICES = [
+    Choice("Embed into video", "embed", "Include cover art inside the file (default)"),
+    Choice("Save separately", "save", "Save as a separate image file"),
+    Choice("Both", "both", "Embed and save separately"),
+    Choice("None", "none", "Do not download thumbnail"),
 ]
 
 _SUMMARY = [
@@ -46,6 +52,7 @@ _SUMMARY = [
     ("item_range", "Range"),
     ("media_type", "Media Type"),
     ("quality", "Quality"),
+    ("thumbnail_mode", "Thumbnail"),
     ("subtitle_langs", "Subtitles"),
     ("output_dir", "Save to"),
     ("concurrency", "Parallel Downloads"),
@@ -95,12 +102,18 @@ def build_playlist_wizard() -> Wizard:
                 default_index=_default_quality_index,
                 skip_when=lambda s: s.get("media_type") == "audio",
             ),
+            ChoiceStep(
+                key="thumbnail_mode",
+                title="Thumbnail Options",
+                choices=_THUMBNAIL_CHOICES,
+                default_index=0,
+            ),
             MultiSelectStep(
                 key="subtitle_langs",
                 title="Subtitles",
                 choices=_SUBTITLE_CHOICES,
                 min_selections=0,
-                default_indices=[0, 1, 2, 3],
+                default_indices=[0],
                 skip_when=lambda s: s.get("media_type") == "audio",
             ),
             TextInputStep(

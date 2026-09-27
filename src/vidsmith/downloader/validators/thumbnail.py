@@ -6,7 +6,17 @@ from vidsmith.downloader.validators.models import (
     ValidationErrorCode,
 )
 
-_NO_THUMBNAIL_EMBED = {".ts", ".webm", ".avi", ".flv", ".wav"}
+_NO_THUMBNAIL_EMBED = {
+    ".ts",
+    ".webm",
+    ".avi",
+    ".flv",
+    ".wav",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+}
 
 
 def validate_thumbnail(ctx: ValidationContext, validation: DownloadValidationResult) -> None:

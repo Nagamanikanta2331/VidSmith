@@ -90,3 +90,86 @@
 - **Fix:** Both paths now run items through a `ThreadPoolExecutor` — Best Download sized by `max_concurrency` (default 3), Custom Playlist by the wizard answer (1–5). Each worker constructs its own `YoutubeDL`, so no yt-dlp state is shared; results/warnings/errors are aggregated in the main thread.
 - **Files:** `cli/executor.py` (`execute_best_playlist_download`, `_run_queued`, `execute_playlist`)
 - **Priority:** High
+
+### BUG-010: Validator Error Masking (Primary Output Selection)
+- **Title:** When media download fails, validator inspects downloaded `.webp` thumbnail and reports misleading `Thumbnail embedding failed for ... .webp`.
+- **Symptoms:** Download failures caused by YouTube bot-detection or network errors were reported to the user as thumbnail validation errors instead of missing media files.
+- **Status:** Fixed
+- **Root Cause:** `_get_primary_output` sorted downloaded files by size and fell back to the largest available file regardless of media type. When a video stream failed to download, only the `.webp` thumbnail existed on disk, so the validator treated the image as the primary video container and attempted to verify embedded cover art inside the `.webp` image.
+- **Fix:** `_get_primary_output` now filters candidate files by valid media extensions matching `job.media_type`. If no video/audio container was written, `FileValidator` returns `FILE_MISSING` with a descriptive message. Image extensions are also excluded from thumbnail embedding verification.
+- **Files:** `downloader/validator.py`, `downloader/validators/file.py`, `downloader/validators/thumbnail.py`
+- **Priority:** High
+
+### BUG-011: Forced English Subtitles & Inability to Select "No Subtitles" in Custom Playlists
+- **Title:** Custom Playlist wizard forced English subtitles even when deselected, and offered no option to disable subtitles completely.
+- **Symptoms:** Playlist downloads always fetched English subtitles; selecting or deselecting languages still merged `{"en"}`.
+- **Status:** Fixed
+- **Root Cause:** Hardcoded `| {"en"}` set union in `cli/executor.py` and missing "None" choice in `cli/wizard/wizards/playlist.py`.
+- **Fix:** Added "None" choice to playlist wizard subtitle step. When "none" or an empty set is selected, `SubtitleMode.NONE` is set and language list is cleared without forcing English.
+- **Files:** `cli/wizard/wizards/playlist.py`, `cli/executor.py`
+- **Priority:** Medium
+
+### BUG-012: Throttled Download Speeds (Unsolved YouTube n-challenge)
+- **Title:** Extremely slow download speeds (~50KB/s) on YouTube streams.
+- **Symptoms:** Downloads took 10+ minutes for small batches; yt-dlp warned about n-challenge solving failure.
+- **Status:** Fixed
+- **Root Cause:** Missing challenge solver script for Node.js runtime caused YouTube to intentionally throttle stream downloads.
+- **Fix:** Added `"remote_components": ["ejs:github"]` and increased `concurrent_fragment_downloads` to 8 in `_safe_download_defaults()`, solving the n-challenge and enabling uncapped bandwidth.
+- **Files:** `providers/youtube.py`
+- **Priority:** High
+
+### BUG-013: Video Quality Capped at 360p/720p
+- **Title:** "Best" quality downloads low-resolution (360p/720p) video despite 1080p/4K being available.
+- **Symptoms:** Downloaded files were 360p or 720p; 4K and 1080p streams were ignored.
+- **Status:** Fixed
+- **Root Cause:** Raw stream selector applied `[ext=mp4]`. Because YouTube does not serve modern high-res streams in MP4 containers (only VP9/AV1 webm), yt-dlp was forced to pick legacy low-res formats. Furthermore, mobile android client override was triggering YouTube's SABR experiment, hiding streams above 360p.
+- **Fix:** Updated `_video_format_selector` to request `bestvideo+bestaudio` without raw stream container restrictions (allowing FFmpeg to remux into MP4/MKV), and removed mobile android client override.
+- **Files:** `providers/youtube.py`
+- **Priority:** Critical
+
+### BUG-014: Custom Playlist Wizard Missing Thumbnail Step
+- **Title:** Custom Playlist wizard did not allow users to configure thumbnail options.
+- **Symptoms:** Custom playlist downloads lacked thumbnail choice and defaulted to `None`.
+- **Status:** Fixed
+- **Root Cause:** `build_playlist_wizard` omitted the thumbnail step, and `execute_playlist` never set `thumbnail_mode` on the template `DownloadJob`.
+- **Fix:** Added `thumbnail_mode` ChoiceStep (`Embed`, `Save`, `Both`, `None`) to the wizard and wired it into `execute_playlist`.
+- **Files:** `cli/wizard/wizards/playlist.py`, `cli/executor.py`
+- **Priority:** Medium
+
+### BUG-015: Post-Download Hang on Rate-Limited Subtitles in Playlists
+- **Title:** Worker threads sleep for 75+ seconds after downloading media streams when YouTube returns HTTP 429 on auto-subtitles.
+- **Symptoms:** Download reaches 100%, but terminal stalls for several minutes before advancing to the next batch.
+- **Status:** Fixed
+- **Root Cause:** `_retry_rate_limited_subtitles` executed a 5-step escalating delay ladder (5s, 10s, 15s, 20s, 25s = 75+ seconds) for all jobs, including video jobs where auto-subtitles were requested blindly.
+- **Fix:** Bypassed retry ladder immediately for `DownloadMediaType.VIDEO` and `DownloadMediaType.AUDIO` jobs (`return []`). Reduced retry step and max count for dedicated subtitle jobs.
+- **Files:** `providers/youtube.py`
+- **Priority:** Critical
+
+### BUG-016: Transient Sidecar Files (.vtt, .jpg) Orphaned on Disk as "Duplicates"
+- **Title:** Windows Explorer shows 3 files with identical names for every downloaded video.
+- **Symptoms:** Destination directory filled with raw `.jpg` thumbnails and `.vtt` subtitles alongside merged `.mp4`.
+- **Status:** Fixed
+- **Root Cause:** yt-dlp postprocessors were configured with `already_have_thumbnail: True` and `already_have_subtitle: True`. Additionally, in `_finalize_download`, non-fatal validation warnings on playlist items caused an early return that skipped `cleanup_job_artifacts()`.
+- **Fix:** Configured yt-dlp to clean up transient sidecars upon embedding (`already_have_thumbnail: False`, `already_have_subtitle: False`). Updated `_finalize_download` to invoke `cleanup_job_artifacts()` unconditionally whenever primary media exists.
+- **Files:** `providers/youtube.py`, `cli/executor.py`
+- **Priority:** High
+
+### BUG-017: Rapid Failure on Momentary Network or DNS Drops
+- **Title:** Playlist downloads fail on transient DNS resolution errors (`Failed to resolve 'www.youtube.com'`).
+- **Symptoms:** Items fail after momentary Wi-Fi/DNS drops because retries are exhausted in milliseconds.
+- **Status:** Fixed
+- **Root Cause:** Provider retry loop had zero sleep delay between attempts, immediately exhausting all 3 retries during transient network drops.
+- **Fix:** Added `_is_network_error()` helper detecting DNS, socket reset, and timeout failures. Implemented exponential backoff sleep (2s, 4s, 6s) and bumped max attempts to 5 on network drops.
+- **Files:** `providers/youtube.py`
+- **Priority:** High
+
+### BUG-018: Missing Resume / Skip for Already Downloaded Playlist Items
+- **Title:** Re-running a playlist download repeatedly re-downloads all completed items.
+- **Symptoms:** Users resuming an interrupted playlist download had to wait for already completed files to be fetched again.
+- **Status:** Fixed
+- **Root Cause:** `_download_item` always called `provider.download(job)` without checking whether a completed valid media file already existed in `output_dir`.
+- **Fix:** Added check for existing completed media file (> 100 KB) matching the item prefix; if present, skips download in 0ms and reports `Already downloaded`.
+- **Files:** `cli/executor.py`
+- **Priority:** Medium
+
+

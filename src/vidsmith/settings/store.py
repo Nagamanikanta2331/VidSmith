@@ -44,6 +44,7 @@ _PERSISTED = (
     "ffmpeg_path_override",
     "debug_logging",
     "cookies_from_browser",
+    "cookie_file",
 )
 
 # Cached process-wide instance shared by the provider, cleanup, and wizard.

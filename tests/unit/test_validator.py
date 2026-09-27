@@ -353,3 +353,30 @@ def test_validate_audio_validation_failures(mock_run, tmp_path):
         val.audio.artwork_status == "Missing"
     )  # since mp3 is supported but check failed  # type: ignore
     assert val.audio.metadata_present is False  # type: ignore
+
+
+def test_validate_media_file_missing_when_only_thumbnail_downloaded(tmp_path: Path) -> None:
+    from vidsmith.downloader.job import ThumbnailMode
+    from vidsmith.downloader.validators.models import ValidationErrorCode
+
+    job = DownloadJob(
+        url="https://youtube.com/watch?v=123",
+        media_type=DownloadMediaType.VIDEO,
+        output_dir=tmp_path,
+        thumbnail_mode=ThumbnailMode.EMBED,
+    )
+    thumb_only = tmp_path / "video.webp"
+    thumb_only.write_text("fake image content")
+
+    result = DownloadResult(
+        job_id="test",
+        url=job.url,
+        status=DownloadResultStatus.COMPLETED,
+        output_dir=tmp_path,
+        files=[thumb_only],
+    )
+    val = validate_download(job, result)
+    assert val.success is False
+    assert val.error_code == ValidationErrorCode.FILE_MISSING
+    assert "Media file was not downloaded" in val.error_message
+

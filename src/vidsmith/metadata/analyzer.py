@@ -11,6 +11,7 @@ from typing import Any
 import yt_dlp
 
 from vidsmith.models.media import AnalysisResult, AudioStreamInfo, MediaItem, MediaType
+from vidsmith.utils.environment import js_runtimes_option
 from vidsmith.utils.exceptions import AnalysisError, UnsupportedURLError
 from vidsmith.utils.validators import is_shorts_url, is_youtube_url
 
@@ -156,15 +157,61 @@ def analyze(url: str) -> AnalysisResult:
     if not is_youtube_url(url):
         raise UnsupportedURLError(f"Not a recognised YouTube URL: {url!r}")
 
+    from pathlib import Path
+    from vidsmith.settings.store import current_settings
+
+    s = current_settings()
+
     opts = {
         **_COMMON_OPTS,
         "extract_flat": "in_playlist",
+        "remote_components": ["ejs:github"],
     }
+    js_runtimes = js_runtimes_option(s.node_path_override)
+    if js_runtimes:
+        opts["js_runtimes"] = js_runtimes
+
+    # Pass cookies if configured in settings (for private / member / age-restricted content)
+    if s.cookie_file and Path(s.cookie_file).expanduser().exists():
+        opts["cookiefile"] = str(Path(s.cookie_file).expanduser())
+    elif s.cookies_from_browser:
+        opts["cookiesfrombrowser"] = (s.cookies_from_browser.lower(), None, None, None)
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except yt_dlp.utils.DownloadError as exc:
+        err_msg = str(exc).lower()
+        # If it's a private/login-required video and no working cookies were active:
+        is_auth_needed = any(
+            needle in err_msg
+            for needle in (
+                "private video",
+                "sign in",
+                "members-only",
+                "confirm your age",
+                "bot confirmation",
+                "requires authentication",
+            )
+        )
+        if is_auth_needed and "cookiefile" not in opts and "cookiesfrombrowser" not in opts:
+            # Auto-detect browser cookies (try firefox, edge, chrome, brave)
+            for candidate in ("firefox", "edge", "chrome", "brave"):
+                try:
+                    candidate_opts = dict(opts)
+                    candidate_opts["cookiesfrombrowser"] = (candidate, None, None, None)
+                    with yt_dlp.YoutubeDL(candidate_opts) as ydl:
+                        candidate_info = ydl.extract_info(url, download=False)
+                    if candidate_info:
+                        s.cookies_from_browser = candidate
+                        return _build_result(url, candidate_info)
+                except Exception:
+                    continue
+            raise AnalysisError(
+                "This video is private or requires sign-in. "
+                "To download private/member videos, please export a 'cookies.txt' file "
+                "or select your browser under VidSmith Settings -> Browser Cookies."
+            ) from exc
         raise AnalysisError(str(exc)) from exc
 
     if info is None:

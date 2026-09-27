@@ -18,7 +18,7 @@ class AppSettings:
     default_quality: str = "best"
     default_audio_format: str = "mp3"
     default_audio_quality: str = "192k"
-    max_concurrency: int = 3
+    max_concurrency: int = 5
 
     # Phase B additions.
     default_output_directory: str = ""  # "" → fall back to ~/Downloads
@@ -32,6 +32,9 @@ class AppSettings:
     # Browser to import YouTube cookies from ("" → disabled). Lets yt-dlp
     # download private videos the signed-in account has access to.
     cookies_from_browser: str = ""
+    # Path to an exported Netscape-format cookies.txt file ("" → disabled).
+    # Immune to Windows DPAPI / browser-level cookie encryption issues.
+    cookie_file: str = ""
 
 
 # Module-level default instance

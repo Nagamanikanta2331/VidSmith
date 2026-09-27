@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.0] - 2026-09-25
+
+### Added
+- **Uncapped Best Quality (up to 4K / 8K):** Completely removed legacy `[ext=mp4]` stream filtering that was restricting YouTube downloads to low-resolution (360p/720p) formats. VidSmith now fetches the true highest available video and audio streams (4K, 1440p, 1080p, 720p) and remuxes them into the desired container using FFmpeg without transcoding.
+- **Uncapped Download Speeds (`n`-challenge solver):** Integrated automatic EJS challenge solving (`remote_components: ["ejs:github"]`) powered by Node.js. This eliminates YouTube's 50KB/s download speed throttling, allowing full-bandwidth downloads. Increased concurrent fragment downloads to 8.
+- **Thumbnail Options for Custom Playlists:** Added a dedicated Thumbnail step to the Custom Playlist wizard offering `Embed into video`, `Save separately`, `Both (Embed & Save)`, and `None`.
+- **Persistent Cookie File Support (`cookies.txt`):** Added a persistent `cookie_file` setting (Settings → Cookie File (cookies.txt)) allowing users to supply an exported Netscape-format `cookies.txt` file once. This permanently bypasses YouTube bot checks ("Sign in to confirm you're not a bot") and age-verification gates without triggering Windows DPAPI decryption errors. Includes in-app instructions and Chrome Web Store extension link (`Get cookies.txt LOCALLY`).
+- **"None" Subtitle Option for Custom Playlists:** Added a clear "None (No Subtitles)" choice to the Custom Playlist wizard. Deselecting subtitles or selecting None cleanly disables subtitles and downloads playlist items without subtitle sidecars or embedded text.
+- **Smart Playlist Resume:** Added intelligent detection of already-downloaded completed media files in the destination directory, instantly skipping them in 0ms so users never re-download existing media when resuming playlists.
+- **Automatic Network & DNS Drop Recovery:** Added automatic detection of transient network and DNS drops (`Failed to resolve 'www.youtube.com'`, socket timeouts, connection resets). VidSmith now pauses with exponential backoff across up to 5 attempts, allowing momentary Wi-Fi/DNS drops to recover seamlessly.
+- **Live Merging Status Indicator:** Added real-time progress updates displaying `Merging…` during FFmpeg stream muxing and metadata embedding before clearing completed items from the live task display.
+
+### Fixed
+- **Resolved False Thumbnail Validation Masking Real Failures:** Fixed primary output resolution in the download validator. When a video stream failed to download (e.g. from network or authentication errors), the validator previously fell back to the downloaded `.webp` thumbnail and misleadingly reported `Thumbnail embedding failed`. The validator now verifies the existence of valid video/audio containers matching the job media type before running inspection steps.
+- **Removed Hardcoded Forced English Subtitles in Playlists:** Removed the hardcoded `| {"en"}` set union in the playlist execution pipeline, respecting user subtitle choices exactly.
+- **Immediate Sidecar Deletion & Duplicate Prevention:** Ensured that transient scaffolding files (`.jpg`, `.vtt`, `.part`, `.temp`) are deleted in milliseconds after media embedding, leaving only the clean final media file. Configured yt-dlp's `FFmpegEmbedSubtitle` and `EmbedThumbnail` postprocessors to automatically clean up sidecars after embedding, and made `_finalize_download` run cleanup unconditionally for completed media.
+- **Eliminated Post-Download Subtitle Hang (75s delay):** Bypassed the escalating retry ladder for video/audio downloads when YouTube returns HTTP 429 on auto-captions. Videos merge and finish immediately without stalling the worker pool.
+- **DownloadStage Enum Compatibility:** Added `PROCESSING_METADATA` and `PROCESSING_THUMBNAIL` backwards-compatible aliases to `DownloadStage`.
+
 ## [1.1.2] - 2026-07-17
 
 ### Added

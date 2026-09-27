@@ -162,6 +162,12 @@ def collect_checks(*, network: bool = True) -> list[Check]:
             required=False,
             hint="`https://deno.com` — recommended JS runtime for full YouTube format parity.",
         ),
+        _check_binary(
+            "aria2c (Turbo)",
+            ("aria2c", "aria2c.exe"),
+            required=False,
+            hint="`winget install aria2.aria2` — multi-connection download accelerator.",
+        ),
     ]
     if network:
         checks.append(_check_socket("one.one.one.one", "Internet", "Connected"))

@@ -1,12 +1,19 @@
+from vidsmith.downloader.job import DownloadMediaType
 from vidsmith.downloader.validators.context import ValidationContext
 from vidsmith.downloader.validators.models import DownloadValidationResult, ValidationErrorCode
 
 
 def validate_files(ctx: ValidationContext, validation: DownloadValidationResult) -> None:
     if not ctx.primary_output:
-        validation.fail(
-            ValidationErrorCode.FILE_MISSING, "Validation failed: no primary output determined."
-        )
+        if ctx.job.media_type in (DownloadMediaType.VIDEO, DownloadMediaType.AUDIO):
+            validation.fail(
+                ValidationErrorCode.FILE_MISSING,
+                "Validation failed: Media file was not downloaded (YouTube returned an error or authentication check).",
+            )
+        else:
+            validation.fail(
+                ValidationErrorCode.FILE_MISSING, "Validation failed: no primary output determined."
+            )
         return
 
     if not ctx.exists:

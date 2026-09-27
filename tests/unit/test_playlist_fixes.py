@@ -20,6 +20,7 @@ from vidsmith.downloader.validators.models import (
     ValidationErrorCode,
 )
 from vidsmith.models.media import AnalysisResult, MediaType
+from vidsmith.playlist.models import OrchestrationStatus
 from vidsmith.providers.results import DownloadResult, DownloadResultStatus
 from vidsmith.utils.exceptions import DownloadError
 
@@ -74,10 +75,62 @@ def _failed_validation(code: str) -> DownloadValidationResult:
     [ValidationErrorCode.THUMBNAIL_NOT_EMBEDDED, ValidationErrorCode.SUBTITLE_MISSING],
 )
 def test_finalize_non_strict_returns_on_embed_failures(code: str) -> None:
-    with patch("vidsmith.cli.executor.validate_download", return_value=_failed_validation(code)):
+    with (
+        patch("vidsmith.cli.executor.validate_download", return_value=_failed_validation(code)),
+        patch("vidsmith.downloader.cleanup.cleanup_job_artifacts") as mock_cleanup,
+    ):
         validation = _finalize_download(_job(), _dl_result(), strict=False)
     assert validation.success is False
     assert validation.error_code == code
+    mock_cleanup.assert_called_once()
+
+
+def test_retry_rate_limited_subtitles_bypassed_for_video_jobs() -> None:
+    from vidsmith.downloader.job import DownloadJob, DownloadMediaType
+    from vidsmith.providers.youtube import YouTubeProvider, _SubtitleLogger
+
+    provider = YouTubeProvider()
+    job = DownloadJob(
+        url="https://youtube.com/watch?v=123",
+        media_type=DownloadMediaType.VIDEO,
+        output_dir=Path("/tmp"),
+    )
+    logger = _SubtitleLogger()
+    logger.subtitle_failures = {"en": "HTTP Error 429: Too Many Requests"}
+    # Must immediately return empty list without any sleeping
+    result = provider._retry_rate_limited_subtitles(job, job.url, {}, logger, None)
+    assert result == []
+
+
+def test_embed_thumbnail_postprocessor_does_not_keep_transient_sidecar() -> None:
+    from vidsmith.downloader.job import DownloadJob, DownloadMediaType, ThumbnailMode
+    from vidsmith.providers.youtube import YouTubeProvider
+
+    provider = YouTubeProvider()
+    job = DownloadJob(
+        url="https://youtube.com/watch?v=123",
+        media_type=DownloadMediaType.VIDEO,
+        thumbnail_mode=ThumbnailMode.EMBED,
+        video_format="mp4",
+        output_dir=Path("/tmp"),
+    )
+    pps = provider._postprocessors(job)
+    embed_pp = next((p for p in pps if p.get("key") == "EmbedThumbnail"), None)
+    assert embed_pp is not None
+    assert embed_pp["already_have_thumbnail"] is False
+
+
+def test_all_download_stages_can_be_dispatched() -> None:
+    from vidsmith.downloader.progress import DownloadProgress, DownloadStage
+
+    for stage in DownloadStage:
+        prog = DownloadProgress(job_id="test", stage=stage)
+        assert prog.stage == stage
+    # Test backwards-compatible aliases
+    assert DownloadStage.PROCESSING_METADATA == DownloadStage.EMBEDDING_METADATA
+    assert DownloadStage.PROCESSING_THUMBNAIL == DownloadStage.EMBEDDING_THUMBNAIL
+
+
 
 
 @pytest.mark.parametrize("code", [ValidationErrorCode.FILE_MISSING, ValidationErrorCode.FILE_EMPTY])
@@ -160,3 +213,140 @@ def test_skipped_summary_counts_reasons() -> None:
         == "4 skipped: 2 deleted, 2 private"
     )
     assert _skipped_summary(["private"]) == "1 skipped: 1 private"
+
+
+def test_playlist_subtitles_none_disables_subtitles() -> None:
+    from vidsmith.cli.executor import execute_playlist
+    from vidsmith.cli.wizard.base import WizardState
+    from vidsmith.playlist.models import PlaylistResult
+
+    state = WizardState(
+        {
+            "output_dir": "/tmp",
+            "media_type": "video",
+            "quality": "best",
+            "item_selection": "all",
+            "subtitle_langs": ["none"],
+        }
+    )
+    dummy_result = PlaylistResult(
+        job_id="test",
+        status=OrchestrationStatus.COMPLETED,
+        total_items=0,
+        completed=0,
+        failed=0,
+        skipped=0,
+    )
+    with (
+        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
+    ):
+        execute_playlist(state, _analysis())
+        assert mock_submit.called
+        job = mock_submit.call_args[0][0]
+        assert job.download_template.subtitle_mode == SubtitleMode.NONE
+        assert job.download_template.subtitle_languages == []
+        assert job.download_template.subtitle_requested_languages == []
+
+
+def test_playlist_subtitles_empty_disables_subtitles() -> None:
+    from vidsmith.cli.executor import execute_playlist
+    from vidsmith.cli.wizard.base import WizardState
+    from vidsmith.playlist.models import PlaylistResult
+
+    state = WizardState(
+        {
+            "output_dir": "/tmp",
+            "media_type": "video",
+            "quality": "best",
+            "item_selection": "all",
+            "subtitle_langs": [],
+        }
+    )
+    dummy_result = PlaylistResult(
+        job_id="test",
+        status=OrchestrationStatus.COMPLETED,
+        total_items=0,
+        completed=0,
+        failed=0,
+        skipped=0,
+    )
+    with (
+        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
+    ):
+        execute_playlist(state, _analysis())
+        assert mock_submit.called
+        job = mock_submit.call_args[0][0]
+        assert job.download_template.subtitle_mode == SubtitleMode.NONE
+        assert job.download_template.subtitle_languages == []
+
+
+def test_playlist_subtitles_custom_does_not_force_english() -> None:
+    from vidsmith.cli.executor import execute_playlist
+    from vidsmith.cli.wizard.base import WizardState
+    from vidsmith.playlist.models import PlaylistResult
+
+    state = WizardState(
+        {
+            "output_dir": "/tmp",
+            "media_type": "video",
+            "quality": "best",
+            "item_selection": "all",
+            "subtitle_langs": ["te"],
+        }
+    )
+    dummy_result = PlaylistResult(
+        job_id="test",
+        status=OrchestrationStatus.COMPLETED,
+        total_items=0,
+        completed=0,
+        failed=0,
+        skipped=0,
+    )
+    with (
+        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
+    ):
+        execute_playlist(state, _analysis())
+        assert mock_submit.called
+        job = mock_submit.call_args[0][0]
+        assert job.download_template.subtitle_mode == SubtitleMode.BOTH
+        assert job.download_template.subtitle_languages == ["te"]
+        assert "en" not in job.download_template.subtitle_languages
+
+
+def test_playlist_thumbnail_mode_propagates_to_template() -> None:
+    from vidsmith.cli.executor import execute_playlist
+    from vidsmith.cli.wizard.base import WizardState
+    from vidsmith.downloader.job import ThumbnailMode
+    from vidsmith.playlist.models import PlaylistResult
+
+    state = WizardState(
+        {
+            "output_dir": "/tmp",
+            "media_type": "video",
+            "quality": "best",
+            "thumbnail_mode": "save",
+            "item_selection": "all",
+            "subtitle_langs": ["none"],
+        }
+    )
+    dummy_result = PlaylistResult(
+        job_id="test",
+        status=OrchestrationStatus.COMPLETED,
+        total_items=0,
+        completed=0,
+        failed=0,
+        skipped=0,
+    )
+    with (
+        patch("vidsmith.playlist.engine.PlaylistEngine.submit", return_value=dummy_result) as mock_submit,
+        patch("vidsmith.cli.executor.Prompt.ask", return_value=""),
+    ):
+        execute_playlist(state, _analysis())
+        assert mock_submit.called
+        job = mock_submit.call_args[0][0]
+        assert job.download_template.thumbnail_mode == ThumbnailMode.SAVE
+
+

@@ -26,6 +26,7 @@ def saved(mock_settings_dir: Path):
         default_audio_format="flac",
         default_audio_quality="320k",
         max_concurrency=4,
+        cookie_file="C:/test/cookies.txt",
     )
     with mock.patch.object(store, "_current", s):
         yield s
@@ -111,8 +112,17 @@ def test_settings_wizard_seeds_from_saved_values(saved: AppSettings):
 
     wizard = build_settings_wizard()
     assert _step_by_key(wizard, "default_output_directory")._default == "D:/Media"
+    assert _step_by_key(wizard, "cookie_file")._default == "C:/test/cookies.txt"
     container = _step_by_key(wizard, "default_container")
     assert _CONTAINER_CHOICES[container._default_index].value == "mkv"
+
+
+def test_get_provider_passes_cookie_file(saved: AppSettings):
+    from vidsmith.cli.executor import _get_provider, _reset_provider
+
+    _reset_provider()
+    provider = _get_provider()
+    assert provider.config.get("cookie_file") == "C:/test/cookies.txt"
 
 
 def test_choice_step_callable_default_out_of_range_is_safe():

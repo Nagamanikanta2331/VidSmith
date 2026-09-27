@@ -72,6 +72,7 @@ _SUMMARY = [
     ("node_path_override", "Node.js Path"),
     ("ffmpeg_path_override", "FFmpeg Path"),
     ("cookies_from_browser", "Browser Cookies"),
+    ("cookie_file", "Cookie File (cookies.txt)"),
     ("max_concurrency", "Max Parallel Downloads"),
     ("debug_logging", "Debug Logging"),
 ]
@@ -191,6 +192,19 @@ def build_settings_wizard() -> Wizard:
                 title="Browser Cookies",
                 choices=_COOKIES_BROWSER_CHOICES,
                 default_index=_index_of(_COOKIES_BROWSER_CHOICES, s.cookies_from_browser),
+            ),
+            TextInputStep(
+                key="cookie_file",
+                title="Cookie File (cookies.txt)",
+                prompt_label="Cookie file path (blank = disabled)",
+                default=s.cookie_file,
+                validator=_optional_path_validator,
+                allow_empty=True,
+                description=(
+                    "Path to Netscape-format cookies.txt. Bypasses YouTube bot checks and login prompts.\n"
+                    "Export via browser extension: 'Get cookies.txt LOCALLY'\n"
+                    "Link: https://chromewebstore.google.com/detail/get-cookiestxt/jfpagppebpdniglnncbplpammolfnjcn?hl=en-US&utm_source=ext_sidebar"
+                ),
             ),
             NumericStep(
                 key="max_concurrency",

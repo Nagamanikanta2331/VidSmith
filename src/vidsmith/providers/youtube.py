@@ -135,6 +135,53 @@ def _classify_subtitle_reason(reason: str) -> str:
     return reason.split(":")[0].strip().capitalize() if reason else "Unknown"
 
 
+def _is_network_error(err: str) -> bool:
+    """True when an error is caused by a transient DNS or network socket failure."""
+    lower = err.lower()
+    return any(
+        s in lower
+        for s in (
+            "failed to resolve",
+            "getaddrinfo",
+            "name or service not known",
+            "connection refused",
+            "connection reset",
+            "connection aborted",
+            "connection error",
+            "timed out",
+            "timeout",
+            "network is unreachable",
+            "remotedisconnected",
+            "unable to download api page",
+            "winerror 10053",
+            "winerror 10054",
+            "winerror 10060",
+            "winerror 10061",
+        )
+    )
+
+
+_CLIENT_FALLBACK_ROTATION: tuple[list[str], ...] = (
+    ["visionos", "web_safari"],
+    ["web", "web_embedded", "tv"],
+    ["mweb", "web_embedded"],
+    ["android", "web"],
+)
+
+
+def _apply_client_fallback(run_options: dict[str, Any], attempt: int) -> None:
+    """Rotate player client in yt-dlp extractor args on retry attempts."""
+    if attempt <= 0:
+        return
+    idx = attempt % len(_CLIENT_FALLBACK_ROTATION)
+    clients = _CLIENT_FALLBACK_ROTATION[idx]
+    current_args = dict(run_options.get("extractor_args") or {})
+    current_yt = dict(current_args.get("youtube") or {})
+    current_yt["player_client"] = clients
+    current_args["youtube"] = current_yt
+    run_options["extractor_args"] = current_args
+
+
 class YouTubeProvider(Provider):
     """Concrete Provider shell for future YouTube download integration."""
 
@@ -263,10 +310,14 @@ class YouTubeProvider(Provider):
             "skip_download": True,
             "simulate": True,
             "extract_flat": "in_playlist",
+            "remote_components": ["ejs:github"],
             # Cookies apply to analysis too, so private videos the user can
             # access resolve instead of erroring at the analyze step.
             **self._cookies_option(),
         }
+        js_runtimes = js_runtimes_option(self.config.get("node_path_override", ""))
+        if js_runtimes:
+            options["js_runtimes"] = js_runtimes
         return options
 
     def _run_download(
@@ -373,6 +424,9 @@ class YouTubeProvider(Provider):
                             int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
                         )
 
+                if _is_network_error(last_error):
+                    attempts = max(attempts, 5)
+
                 _logger.warning(
                     "Attempt %d/%d failed for %s: %s", attempt, attempts, normalized_url, last_error
                 )
@@ -380,16 +434,28 @@ class YouTubeProvider(Provider):
                     raise DownloadError(
                         f"YouTube {media_type} download failed after {attempts} attempts: {last_error}"
                     ) from None
-                # Tell the user we are retrying and why, instead of leaving the
-                # spinner frozen on the previous stage for the whole retry cycle.
-                self._emit_progress(
-                    progress_callback,
-                    DownloadProgress(
-                        job_id=job.job_id,
-                        stage=DownloadStage.RETRYING,
-                        message=f"⚠ Retrying ({attempt + 1}/{attempts}): {_short_error(last_error)}",
-                    ),
-                )
+
+                if _is_network_error(last_error):
+                    delay = min(2 * attempt, 6)
+                    self._emit_progress(
+                        progress_callback,
+                        DownloadProgress(
+                            job_id=job.job_id,
+                            stage=DownloadStage.RETRYING,
+                            message=f"⚠ Network drop detected — waiting {delay}s for connection to recover ({attempt + 1}/{attempts})",
+                        ),
+                    )
+                    time.sleep(delay)
+                else:
+                    _apply_client_fallback(run_options, attempt)
+                    self._emit_progress(
+                        progress_callback,
+                        DownloadProgress(
+                            job_id=job.job_id,
+                            stage=DownloadStage.RETRYING,
+                            message=f"⚠ Retrying ({attempt + 1}/{attempts}): {_short_error(last_error)}",
+                        ),
+                    )
                 attempt += 1
                 continue
 
@@ -425,6 +491,9 @@ class YouTubeProvider(Provider):
                             int(run_options.get("sleep_interval_subtitles", 0) or 0) + 5
                         )
 
+                if _is_network_error(last_error):
+                    attempts = max(attempts, 5)
+
                 _logger.warning(
                     "Attempt %d/%d returned no info for %s: %s",
                     attempt,
@@ -436,16 +505,92 @@ class YouTubeProvider(Provider):
                     raise DownloadError(
                         f"YouTube {media_type} download failed after {attempts} attempts: {last_error}"
                     )
-                self._emit_progress(
-                    progress_callback,
-                    DownloadProgress(
-                        job_id=job.job_id,
-                        stage=DownloadStage.RETRYING,
-                        message=f"⚠ Retrying ({attempt + 1}/{attempts}): {_short_error(last_error)}",
-                    ),
-                )
+
+                if _is_network_error(last_error):
+                    delay = min(2 * attempt, 6)
+                    self._emit_progress(
+                        progress_callback,
+                        DownloadProgress(
+                            job_id=job.job_id,
+                            stage=DownloadStage.RETRYING,
+                            message=f"⚠ Network drop detected — waiting {delay}s for connection to recover ({attempt + 1}/{attempts})",
+                        ),
+                    )
+                    time.sleep(delay)
+                else:
+                    _apply_client_fallback(run_options, attempt)
+                    self._emit_progress(
+                        progress_callback,
+                        DownloadProgress(
+                            job_id=job.job_id,
+                            stage=DownloadStage.RETRYING,
+                            message=f"⚠ Retrying ({attempt + 1}/{attempts}): {_short_error(last_error)}",
+                        ),
+                    )
                 attempt += 1
                 continue
+
+            # If a media download (video or audio) was requested, verify that a non-empty media file
+            # was actually written. With ignoreerrors=True, yt-dlp catches fatal download errors on
+            # the media stream and returns the info dict anyway. If no media file exists,
+            # this attempt FAILED and must be retried with client rotation.
+            if media_type in ("video", "audio"):
+                media_file = next(
+                    (
+                        f
+                        for f in self._downloaded_files(info)
+                        if f.exists()
+                        and f.is_file()
+                        and f.stat().st_size > 0
+                        and f.suffix.lower() not in {
+                            ".vtt",
+                            ".srt",
+                            ".ass",
+                            ".ssa",
+                            ".lrc",
+                            ".ttml",
+                            ".srv1",
+                            ".srv2",
+                            ".srv3",
+                            ".json3",
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".webp",
+                            ".json",
+                        }
+                        and not f.name.endswith(".part")
+                        and not f.name.endswith(".ytdl")
+                    ),
+                    None,
+                )
+                if media_file is None:
+                    last_error = (
+                        subtitle_logger.last_error
+                        or "Media file was not downloaded (YouTube returned an error or authentication check)."
+                    )
+                    _logger.warning(
+                        "Attempt %d/%d produced no media file for %s: %s",
+                        attempt,
+                        attempts,
+                        normalized_url,
+                        last_error,
+                    )
+                    if attempt >= attempts:
+                        raise DownloadError(
+                            f"YouTube {media_type} download failed after {attempts} attempts: {last_error}"
+                        )
+                    _apply_client_fallback(run_options, attempt)
+                    self._emit_progress(
+                        progress_callback,
+                        DownloadProgress(
+                            job_id=job.job_id,
+                            stage=DownloadStage.RETRYING,
+                            message=f"⚠ Retrying with client fallback ({attempt + 1}/{attempts}): {_short_error(last_error)}",
+                        ),
+                    )
+                    attempt += 1
+                    continue
 
             self._remember_metadata(normalized_url, info)
             # Rate-limited subtitle tracks are warnings (never fatal), so the
@@ -509,8 +654,8 @@ class YouTubeProvider(Provider):
 
     # Escalating per-retry delay for rate-limited subtitle tracks: +5s per
     # attempt (5, 10, 15, 20, 25s), up to 5 tries per language, then skip.
-    _SUBTITLE_RETRY_STEP = 5
-    _SUBTITLE_RETRY_MAX = 5
+    _SUBTITLE_RETRY_STEP = 2
+    _SUBTITLE_RETRY_MAX = 2
 
     def _retry_rate_limited_subtitles(
         self,
@@ -522,14 +667,15 @@ class YouTubeProvider(Provider):
     ) -> list[Path]:
         """Re-fetch subtitle tracks that YouTube rate-limited (HTTP 429).
 
-        The main download treats a failed subtitle as a warning and moves on,
-        so this runs afterwards: one subtitle-only yt-dlp pass per retry
-        round, waiting 5s more before each round (5, 10, … 25s), until every
-        language succeeded or 5 rounds passed. Languages that recover are removed
-        from ``subtitle_logger.subtitle_failures`` so the summary reports
-        them as downloaded; the returned sidecar paths are appended to the
-        download result for validation/cleanup.
+        The main download treats a failed subtitle as a warning and moves on.
+        For video/audio downloads, media streams are already downloaded and
+        merged. Waiting 75+ seconds for rate-limited auto-subtitles stalls
+        the entire download pipeline and playlist queue. Only dedicated subtitle
+        jobs should attempt rate-limited subtitle retries.
         """
+        if job.media_type not in (DownloadMediaType.SUBTITLE, DownloadMediaType.TRANSCRIPT):
+            return []
+
         failed = {
             lang: reason
             for lang, reason in subtitle_logger.subtitle_failures.items()
@@ -843,23 +989,16 @@ class YouTubeProvider(Provider):
         defaults: dict[str, Any] = {
             "retries": 10,
             "fragment_retries": 10,
-            "extractor_retries": 3,
+            "extractor_retries": 5,
             "file_access_retries": 3,
             "continuedl": True,
-            "buffersize": 1024 * 1024,
-            "concurrent_fragment_downloads": 5,
-            "socket_timeout": 20,
-            "http_chunk_size": 10 * 1024 * 1024,
+            "buffersize": 16 * 1024 * 1024,
+            "concurrent_fragment_downloads": 8,
+            "socket_timeout": 30,
             "progress_delta": 0.2,
-            # Subtitle/postprocessing failures must not abort the media
-            # download. NOTE: yt-dlp only downgrades a failed subtitle track
-            # to a warning when ignoreerrors is exactly True — with
-            # "only_download" it RAISES (YoutubeDL._write_subtitles), killing
-            # the whole video over one 429. Real media failures still surface:
-            # yt-dlp reports them and returns None, which _run_download turns
-            # into a retry/DownloadError, and the executor validates the final
-            # files either way.
             "ignoreerrors": True,
+            # Solve YouTube JS challenges (n-challenge) via Node.js to eliminate 50KB/s speed throttling
+            "remote_components": ["ejs:github"],
         }
 
         # Throttling each subtitle request keeps YouTube from rate-limiting.
@@ -881,19 +1020,36 @@ class YouTubeProvider(Provider):
         js_runtimes = js_runtimes_option(self.config.get("node_path_override", ""))
         if js_runtimes:
             defaults["js_runtimes"] = js_runtimes
+
         defaults |= self._cookies_option()
         return defaults | self._ffmpeg_location_option()
 
     def _cookies_option(self) -> dict[str, Any]:
-        """Optional --cookies-from-browser equivalent for private videos.
+        """Optional cookiefile and --cookies-from-browser for auth/private videos."""
+        opts: dict[str, Any] = {}
+        cookie_file = str(self.config.get("cookie_file") or "").strip()
+        if not cookie_file:
+            from vidsmith.settings.store import current_settings
 
-        yt-dlp expects a (browser, profile, keyring, container) tuple; only
-        the browser is configurable here.
-        """
+            cookie_file = str(current_settings().cookie_file or "").strip()
+
+        if cookie_file:
+            path = Path(cookie_file).expanduser()
+            if path.exists():
+                opts["cookiefile"] = str(path)
+                return opts
+            else:
+                _logger.warning("Configured cookie_file does not exist: %s", cookie_file)
+
         browser = str(self.config.get("cookies_from_browser") or "").strip().lower()
         if not browser:
-            return {}
-        return {"cookiesfrombrowser": (browser, None, None, None)}
+            from vidsmith.settings.store import current_settings
+
+            browser = str(current_settings().cookies_from_browser or "").strip().lower()
+
+        if browser:
+            opts["cookiesfrombrowser"] = (browser, None, None, None)
+        return opts
 
     def _ffmpeg_location_option(self) -> dict[str, str]:
         configured = self.config.get("ffmpeg_location")
@@ -916,7 +1072,7 @@ class YouTubeProvider(Provider):
             postprocessors.append(
                 {
                     "key": "FFmpegEmbedSubtitle",
-                    "already_have_subtitle": True,
+                    "already_have_subtitle": False,
                 }
             )
 
@@ -941,7 +1097,7 @@ class YouTubeProvider(Provider):
             postprocessors.append(
                 {
                     "key": "EmbedThumbnail",
-                    "already_have_thumbnail": self._writes_thumbnail(job),
+                    "already_have_thumbnail": job.thumbnail_mode in {ThumbnailMode.SAVE, ThumbnailMode.BOTH},
                 }
             )
 
@@ -1011,72 +1167,39 @@ class YouTubeProvider(Provider):
     def _video_format_selector(self, quality: str, container: str, audio_lang: str = "") -> str:
         normalized_quality = quality.strip().lower()
         height = self._quality_height(normalized_quality)
-        ext_filter = self._video_ext_filter(container)
-        audio_container_filter = self._compatible_audio_filter(container)
-
-        audio_filter = audio_container_filter
-        if audio_lang:
-            audio_filter += f"[language={audio_lang}]"
-
-        generic_audio = "bestaudio"
-        if audio_lang:
-            generic_audio += f"[language={audio_lang}]"
 
         if normalized_quality == "lowest":
-            if ext_filter or audio_filter:
-                return (
-                    f"worstvideo{ext_filter}+{generic_audio}{audio_container_filter}/"
-                    f"worstvideo{ext_filter}+worstaudio/"
-                    f"worst{ext_filter}/worst"
-                )
+            if audio_lang:
+                return f"worstvideo+worstaudio[language={audio_lang}]/worstvideo+worstaudio/worst"
             return "worstvideo+worstaudio/worst"
 
         if height is None:
-            if not audio_lang:
-                if ext_filter:
-                    return (
-                        f"{self._VP9_OPUS_FORMAT_CHAIN}/"
-                        f"bestvideo{ext_filter}+bestaudio{audio_container_filter}/"
-                        f"bestvideo{ext_filter}+bestaudio/"
-                        f"best{ext_filter}/best"
-                    )
-                return f"{self._VP9_OPUS_FORMAT_CHAIN}/bestvideo+bestaudio"
+            # Uncapped Best quality: prefer VP9+Opus if available, but ALWAYS fall back
+            # to bestvideo+bestaudio/bv*+ba/b without filtering raw streams by [ext=mp4]
+            # so 4K, 1440p, and 1080p modern streams are never discarded.
+            # FFmpeg merges/remuxes streams into the requested container automatically.
             if audio_lang:
-                if ext_filter:
-                    return (
-                        f"bestvideo{ext_filter}+bestaudio{audio_filter}/"
-                        f"bestvideo{ext_filter}+bestaudio/"
-                        f"best{ext_filter}/best"
-                    )
-                return f"bv*+ba[language={audio_lang}]/bv*+ba/b"
-            else:
-                if ext_filter:
-                    return (
-                        f"bestvideo{ext_filter}+bestaudio{audio_container_filter}/"
-                        f"bestvideo{ext_filter}+bestaudio/"
-                        f"best{ext_filter}/best"
-                    )
-                return "bv*+ba/b"
+                return (
+                    f"{self._VP9_OPUS_FORMAT_CHAIN}/"
+                    f"bestvideo+bestaudio[language={audio_lang}]/"
+                    f"bestvideo+bestaudio/bv*+ba/b"
+                )
+            return f"{self._VP9_OPUS_FORMAT_CHAIN}/bestvideo+bestaudio/bv*+ba/b"
 
         vp9_selector = self._vp9_selector_for_height(height, audio_lang)
-        if ext_filter:
-            prefix = f"{vp9_selector}/" if vp9_selector else ""
-            return (
-                f"{prefix}"
-                f"bestvideo[height<={height}]{ext_filter}+bestaudio{audio_filter}/"
-                f"bestvideo[height<={height}]+bestaudio/"
-                f"best[height<={height}]{ext_filter}/best[height<={height}]"
-            )
-
-        if audio_lang:
-            prefix = f"{vp9_selector}/" if vp9_selector else ""
-            return (
-                f"{prefix}"
-                f"bv*[height<={height}]+ba[language={audio_lang}]/"
-                f"bv*[height<={height}]+ba/b[height<={height}]"
-            )
         prefix = f"{vp9_selector}/" if vp9_selector else ""
-        return f"{prefix}bv*[height<={height}]+ba/b[height<={height}]"
+        if audio_lang:
+            return (
+                f"{prefix}"
+                f"bestvideo[height<={height}]+bestaudio[language={audio_lang}]/"
+                f"bestvideo[height<={height}]+bestaudio/"
+                f"best[height<={height}]/bv*[height<={height}]+ba/b[height<={height}]"
+            )
+        return (
+            f"{prefix}"
+            f"bestvideo[height<={height}]+bestaudio/"
+            f"best[height<={height}]/bv*[height<={height}]+ba/b[height<={height}]"
+        )
 
     def _vp9_selector_for_height(self, height: int, audio_lang: str = "") -> str:
         formats = [
